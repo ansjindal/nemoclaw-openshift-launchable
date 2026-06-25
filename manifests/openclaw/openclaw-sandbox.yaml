@@ -101,11 +101,15 @@ spec:
               name: config-volume
           # (cm-volume is mounted only in the initContainer now — it seeds the writable
           #  config copy above; the gateway no longer reads the read-only Secret directly.)
-        # Auto-approve device pairing so users only ever provide the password. Remote
-        # clients (via NodePort) aren't seen as "local", so the gateway won't silently
-        # pair them — this sidecar runs the shipped `openclaw devices approve` as a
-        # loopback (local) client to clear pending requests every few seconds.
-        - name: pair-approver
+        # Loopback hop for zero-friction pairing. OpenClaw 2026.6.10 silently auto-pairs a
+        # *local* Control-UI client (incl. scope/role upgrades) but prompts for "device
+        # pairing" on remote ones. External traffic arrives via NodePort -> kube-proxy, so the
+        # gateway sees it as remote. This sidecar (same pod = shared localhost) listens on
+        # :18788 and forwards to the gateway on 127.0.0.1:18789, so every client looks local
+        # and auto-pairs. The fixed password (--auth password) stays the only user-facing step.
+        # The Services target :18788 (this proxy), not the gateway's :18789, so all external
+        # connections take the loopback hop.
+        - name: loopback-proxy
           image: ghcr.io/openclaw/openclaw:2026.6.10
           imagePullPolicy: IfNotPresent
           securityContext:
@@ -115,21 +119,19 @@ spec:
             capabilities:
               drop:
                 - ALL
-          env:
-            - name: GW_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: openclaw-gateway-password
-                  key: password
           command:
-            - sh
-            - -c
+            - node
+            - -e
             - |
-              while true; do
-                node dist/index.js devices approve --latest \
-                  --password "$GW_PASSWORD" --url ws://127.0.0.1:18789 >/dev/null 2>&1 || true
-                sleep 3
-              done
+              const net = require('net');
+              net.createServer((c) => {
+                const u = net.connect(18789, '127.0.0.1');
+                c.pipe(u); u.pipe(c);
+                const end = () => { c.destroy(); u.destroy(); };
+                c.on('error', end); u.on('error', end);
+              }).listen(18788, '0.0.0.0', () => console.log('loopback-proxy :18788 -> 127.0.0.1:18789'));
+          ports:
+            - containerPort: 18788
       volumes:
         - name: workspace-seed
           configMap:
