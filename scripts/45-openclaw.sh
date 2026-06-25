@@ -42,7 +42,7 @@ if [[ "$CONFIGURED" == "true" ]]; then
     --arg model "$NEMOCLAW_MODEL" \
     --arg api "$INFERENCE_API" \
     '{
-       gateway: { controlUi: { dangerouslyAllowHostHeaderOriginFallback: true } },
+       gateway: { controlUi: { dangerouslyAllowHostHeaderOriginFallback: true, dangerouslyDisableDeviceAuth: true } },
        agents:  { defaults: { model: { primary: ("custom/" + $model) } } },
        models:  { providers: { custom: {
          baseUrl: $url, apiKey: $key, api: $api,
@@ -52,7 +52,7 @@ if [[ "$CONFIGURED" == "true" ]]; then
 else
   warn "No inference creds in env — deploying OpenClaw UNCONFIGURED."
   warn "After launch, open the OpenClaw UI and add a provider/model + key (Settings)."
-  OPENCLAW_JSON='{"gateway":{"controlUi":{"dangerouslyAllowHostHeaderOriginFallback":true}}}'
+  OPENCLAW_JSON='{"gateway":{"controlUi":{"dangerouslyAllowHostHeaderOriginFallback":true,"dangerouslyDisableDeviceAuth":true}}}'
 fi
 
 # Store config in a Secret (it holds the API key) + a fixed gateway password Secret.

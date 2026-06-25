@@ -101,37 +101,12 @@ spec:
               name: config-volume
           # (cm-volume is mounted only in the initContainer now — it seeds the writable
           #  config copy above; the gateway no longer reads the read-only Secret directly.)
-        # Loopback hop for zero-friction pairing. OpenClaw 2026.6.10 silently auto-pairs a
-        # *local* Control-UI client (incl. scope/role upgrades) but prompts for "device
-        # pairing" on remote ones. External traffic arrives via NodePort -> kube-proxy, so the
-        # gateway sees it as remote. This sidecar (same pod = shared localhost) listens on
-        # :18788 and forwards to the gateway on 127.0.0.1:18789, so every client looks local
-        # and auto-pairs. The fixed password (--auth password) stays the only user-facing step.
-        # The Services target :18788 (this proxy), not the gateway's :18789, so all external
-        # connections take the loopback hop.
-        - name: loopback-proxy
-          image: ghcr.io/openclaw/openclaw:2026.6.10
-          imagePullPolicy: IfNotPresent
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
-            runAsNonRoot: true
-            capabilities:
-              drop:
-                - ALL
-          command:
-            - node
-            - -e
-            - |
-              const net = require('net');
-              net.createServer((c) => {
-                const u = net.connect(18789, '127.0.0.1');
-                c.pipe(u); u.pipe(c);
-                const end = () => { c.destroy(); u.destroy(); };
-                c.on('error', end); u.on('error', end);
-              }).listen(18788, '0.0.0.0', () => console.log('loopback-proxy :18788 -> 127.0.0.1:18789'));
-          ports:
-            - containerPort: 18788
+          #
+          # Device pairing: the gateway config sets gateway.controlUi.dangerouslyDisableDeviceAuth
+          # =true (built in 45-openclaw.sh), which turns off the Control-UI device-pairing check —
+          # so a remote browser connects with just the password, no "device pairing required"
+          # prompt and no approver sidecar. Acceptable break-glass for an ephemeral, password-gated
+          # workshop box (same posture as the unauthenticated console); don't use it for anything real.
       volumes:
         - name: workspace-seed
           configMap:

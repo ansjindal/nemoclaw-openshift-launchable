@@ -11,6 +11,4 @@ spec:
   ports:
     - name: gateway
       port: 18789
-      # Target the in-pod loopback-proxy (:18788), not the gateway (:18789) directly — that
-      # makes clients look "local" so the Control UI auto-pairs (no device-pairing prompt).
-      targetPort: 18788
+      targetPort: 18789

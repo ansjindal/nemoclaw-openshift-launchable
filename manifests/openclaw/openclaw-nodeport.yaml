@@ -17,7 +17,5 @@ spec:
   ports:
     - name: ui
       port: 18789
-      # → in-pod loopback-proxy (:18788) so the gateway sees clients as local and the
-      #   Control UI auto-pairs (no device-pairing prompt); password is the only step.
-      targetPort: 18788
+      targetPort: 18789
       nodePort: 30789
