@@ -76,7 +76,9 @@ fi
 ENGINE="${CONTAINER_ENGINE:-podman}"
 NODE_CTR="${MINC_NODE_CONTAINER:-microshift}"
 PULL="sudo $ENGINE"   # MINC node runs under rootful podman/docker
-OPENCLAW_IMAGE="$(grep -oE 'image: ghcr.io/openclaw/openclaw:[^ ]+' "$REPO_ROOT/manifests/openclaw/openclaw-sandbox.yaml" | awk '{print $2}')"
+# The sandbox + pair-approver containers share the same image, so the manifest has the
+# line twice — take the first match only, or the doubled value becomes an invalid ref.
+OPENCLAW_IMAGE="$(grep -oE 'image: ghcr.io/openclaw/openclaw:[^ ]+' "$REPO_ROOT/manifests/openclaw/openclaw-sandbox.yaml" | awk '{print $2}' | head -n1)"
 
 ensure_image_in_node() {
   local img="$1"
