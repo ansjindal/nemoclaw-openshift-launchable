@@ -110,11 +110,13 @@ ensure_image_in_node() {
   local tar="/tmp/openclaw-image.tar"
   log "Side-loading $img into node '$NODE_CTR' CRI-O store"
   # Clear any stale tar first — `podman save -o` refuses to modify an existing docker-archive.
-  rm -f "$tar"; $PULL exec "$NODE_CTR" rm -f "$tar" 2>/dev/null || true
+  # The tar is written by `sudo podman save` (root-owned), so removal needs sudo and must be
+  # non-fatal (set -e + a leftover root-owned tar in sticky /tmp would otherwise abort).
+  sudo rm -f "$tar" 2>/dev/null || true; $PULL exec "$NODE_CTR" rm -f "$tar" 2>/dev/null || true
   $PULL save "$img" -o "$tar"
   $PULL cp "$tar" "${NODE_CTR}:${tar}"
   $PULL exec "$NODE_CTR" skopeo copy "docker-archive:${tar}" "containers-storage:${img}"
-  rm -f "$tar"; $PULL exec "$NODE_CTR" rm -f "$tar" 2>/dev/null || true
+  sudo rm -f "$tar" 2>/dev/null || true; $PULL exec "$NODE_CTR" rm -f "$tar" 2>/dev/null || true
   $PULL exec "$NODE_CTR" crictl images | awk '{print $1":"$2}' | grep -qx "$img" && log "Side-load OK." || die "Side-load failed."
 }
 [[ -n "$OPENCLAW_IMAGE" ]] && ensure_image_in_node "$OPENCLAW_IMAGE"
