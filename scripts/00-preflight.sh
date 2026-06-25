@@ -20,16 +20,19 @@ log "Host: ${CPUS} vCPU, ${RAM_GB} GB RAM, ${DISK_GB} GB free on /"
 (( DISK_GB >= 40 )) || warn "Less than 40 GB free — CoreOS image + sandbox images may not fit."
 
 # --- container engine (MINC runs MicroShift inside it) ---
-ENGINE="${CONTAINER_ENGINE:-docker}"
+ENGINE="${CONTAINER_ENGINE:-podman}"
 if command -v "$ENGINE" >/dev/null 2>&1; then
   log "Container engine '${ENGINE}' present"
 else
   warn "'${ENGINE}' not found — phase 10 will install it."
 fi
 
-# --- remote inference endpoint ---
-require_var NEMOCLAW_INFERENCE_PROVIDER
-[[ -n "${NEMOCLAW_INFERENCE_BASE_URL:-}" ]] || warn "NEMOCLAW_INFERENCE_BASE_URL is empty — set the remote endpoint URL."
-[[ -n "${NEMOCLAW_API_KEY:-}" ]] || warn "NEMOCLAW_API_KEY is empty — remote endpoint may require it."
+# --- remote inference endpoint (OPTIONAL) ---
+# Hybrid model config: if these are set the agent is pre-configured; if not, it deploys
+# UNCONFIGURED and the user adds a provider/model/key in the OpenClaw UI. So warn, never fail —
+# preflight must not halt the whole provision just because creds weren't supplied.
+[[ -n "${NEMOCLAW_INFERENCE_PROVIDER:-}" ]] || warn "NEMOCLAW_INFERENCE_PROVIDER unset — agent will deploy unconfigured (set the model in the OpenClaw UI)."
+[[ -n "${NEMOCLAW_INFERENCE_BASE_URL:-}" ]] || warn "NEMOCLAW_INFERENCE_BASE_URL empty — agent will deploy unconfigured."
+[[ -n "${NEMOCLAW_API_KEY:-}" ]]            || warn "NEMOCLAW_API_KEY empty — agent will deploy unconfigured."
 
 log "Preflight complete. (No nested virtualization or local GPU required.)"
