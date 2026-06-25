@@ -13,13 +13,16 @@ log "NemoClaw-on-MicroShift launchable: starting provision"
 "$HERE/10-host-deps.sh"
 "$HERE/20-microshift.sh"
 "$HERE/30-openshell.sh"
-"$HERE/45-openclaw.sh"   # OpenClaw agent as a Sandbox in OpenShift + Route (gateway-in-OpenShift path)
-"$HERE/50-expose-nodeports.sh"  # publish MicroShift NodePorts on the host (Brev-URL reachable)
+"$HERE/45-openclaw.sh"   # OpenClaw agent as a Sandbox in OpenShift (deploys even without model creds)
+
+# The remaining phases are best-effort: a hiccup here must NOT fail the whole provision —
+# the agent is already up. Log and continue so the launchable always finishes "ready".
+"$HERE/50-expose-nodeports.sh" || warn "phase 50 (NodePort forwarder) failed — UIs may need a manual 'oc port-forward' or service restart."
 
 # OpenShift/OKD web console (unauthenticated, cluster-admin — workshop/ephemeral use only).
 # Set DEPLOY_CONSOLE=false in .env to skip it.
 if [[ "${DEPLOY_CONSOLE:-true}" == "true" ]]; then
-  "$HERE/60-console.sh"
+  "$HERE/60-console.sh" || warn "phase 60 (console) failed — non-fatal; the OpenClaw agent is still up."
 fi
 
 log "Done. Stack is up:"

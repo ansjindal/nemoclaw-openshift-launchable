@@ -15,11 +15,14 @@ load_env
 export KUBECONFIG="$(kubeconfig_path)"
 require_cmd oc
 [[ -f "$KUBECONFIG" ]] || die "kubeconfig not found — run phase 20 first."
-require_var NEMOCLAW_INFERENCE_BASE_URL
-require_var NEMOCLAW_MODEL
-# The remote endpoint credential. .env historically named this NEMOCLAW_API_KEY.
+# Inference creds are OPTIONAL. If all three are present we pre-configure the model so the
+# agent is ready to chat. If not, the agent deploys UNCONFIGURED and the user picks a
+# provider/model + pastes a key in the OpenClaw UI (onboarding). Either way: never halt.
 API_KEY="${NEMOCLAW_PROVIDER_KEY:-${NEMOCLAW_API_KEY:-}}"
-[[ -n "$API_KEY" ]] || die "Set NEMOCLAW_API_KEY (or NEMOCLAW_PROVIDER_KEY) in .env."
+CONFIGURED=false
+if [[ -n "${NEMOCLAW_INFERENCE_BASE_URL:-}" && -n "${NEMOCLAW_MODEL:-}" && -n "$API_KEY" ]]; then
+  CONFIGURED=true
+fi
 
 NS="openclaw"
 INFERENCE_API="${NEMOCLAW_INFERENCE_API:-openai-completions}"
@@ -31,20 +34,26 @@ oc -n "$NS" adm policy add-scc-to-user anyuid -z default 2>/dev/null || \
 
 # Build OpenClaw config (schema verified against the image: models.providers.<p>.baseUrl
 # + models[] {id,name}; default via agents.defaults.model.primary). jq keeps the key safe.
-log "Building openclaw.json (model=custom/${NEMOCLAW_MODEL}, api=${INFERENCE_API})"
-OPENCLAW_JSON="$(jq -n \
-  --arg url "$NEMOCLAW_INFERENCE_BASE_URL" \
-  --arg key "$API_KEY" \
-  --arg model "$NEMOCLAW_MODEL" \
-  --arg api "$INFERENCE_API" \
-  '{
-     gateway: { controlUi: { dangerouslyAllowHostHeaderOriginFallback: true } },
-     agents:  { defaults: { model: { primary: ("custom/" + $model) } } },
-     models:  { providers: { custom: {
-       baseUrl: $url, apiKey: $key, api: $api,
-       models: [ { id: $model, name: $model } ]
-     } } }
-   }')"
+if [[ "$CONFIGURED" == "true" ]]; then
+  log "Building openclaw.json (model=custom/${NEMOCLAW_MODEL}, api=${INFERENCE_API})"
+  OPENCLAW_JSON="$(jq -n \
+    --arg url "$NEMOCLAW_INFERENCE_BASE_URL" \
+    --arg key "$API_KEY" \
+    --arg model "$NEMOCLAW_MODEL" \
+    --arg api "$INFERENCE_API" \
+    '{
+       gateway: { controlUi: { dangerouslyAllowHostHeaderOriginFallback: true } },
+       agents:  { defaults: { model: { primary: ("custom/" + $model) } } },
+       models:  { providers: { custom: {
+         baseUrl: $url, apiKey: $key, api: $api,
+         models: [ { id: $model, name: $model } ]
+       } } }
+     }')"
+else
+  warn "No inference creds in env — deploying OpenClaw UNCONFIGURED."
+  warn "After launch, open the OpenClaw UI and add a provider/model + key (Settings)."
+  OPENCLAW_JSON='{"gateway":{"controlUi":{"dangerouslyAllowHostHeaderOriginFallback":true}}}'
+fi
 
 # Store config in a Secret (it holds the API key) + a fixed gateway password Secret.
 # Fixed password (not a random token) so workshop users can be told it up front; the
