@@ -16,8 +16,11 @@ Brev VM-mode launchable (Ubuntu 22.04)
             └─ gateway endpoint :18789 exposed via OpenShift Route (edge TLS)
 ```
 
+![Architecture](docs/architecture.svg)
+
 The setup script runs the phases in `scripts/` in order:
-preflight → host deps → MicroShift (MINC) → OpenShell → OpenClaw Sandbox + Routes.
+preflight → host deps → MicroShift (MINC) → OpenShell → OpenClaw Sandbox + Routes
+→ host NodePort forwarder → OpenShift console.
 
 > ✅ **Verified end-to-end on a Brev `n2d-highmem-4` (4 vCPU / 31 GB / Ubuntu 22.04, no `/dev/kvm`):**
 > MINC brings up MicroShift `4.19.0-okd-scos.17` (k8s v1.32.8); the OpenShell chart
