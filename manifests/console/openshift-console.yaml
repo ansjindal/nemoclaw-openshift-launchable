@@ -88,6 +88,7 @@ spec:
             # its own asset/API/websocket URLs — so no proxy shim is needed here
             # (this only works because the console, unlike OpenClaw, supports a base path).
             - { name: BRIDGE_BASE_PATH, value: "/console/" }
+---
 apiVersion: v1
 kind: Service
 metadata:
