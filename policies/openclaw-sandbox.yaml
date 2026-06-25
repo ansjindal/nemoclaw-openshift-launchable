@@ -1,0 +1,115 @@
+# OpenClaw sandbox policy for NemoClaw / OpenShell.
+# Schema: OpenShell sandbox-policy (see policies/README.md). Deny-by-default:
+# the agent can ONLY reach endpoints listed here, and only via the listed binaries.
+#
+# This is the BALANCED tier baseline (inference + ClawHub + OpenClaw API/docs + npm)
+# plus dev presets. Static fields (filesystem, process) are creation-locked; the
+# network section is hot-reloadable via `nemoclaw <name> policy-add`.
+#
+# IMPORTANT: the inference entry's host MUST match NEMOCLAW_INFERENCE_BASE_URL in .env
+# (no local GPU — inference is remote). Update the host below to your endpoint.
+
+network_policies:
+  # --- baseline: remote inference endpoint (REQUIRED, edit host to match .env) ---
+  - name: inference
+    endpoints:
+      - host: integrate.api.nvidia.com   # <-- set to your NEMOCLAW_INFERENCE_BASE_URL host
+        port: 443
+        protocol: rest
+        enforcement: enforce
+    binaries:
+      - /usr/bin/node
+      - /usr/bin/python*
+    rules:
+      - method: POST
+        path: /v1/**
+
+  # --- baseline: ClawHub (agent/blueprint registry) ---
+  - name: clawhub
+    endpoints:
+      - host: clawhub.nvidia.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+    binaries:
+      - /usr/bin/node
+    rules:
+      - method: GET
+        path: /**
+
+  # --- baseline: OpenClaw API + docs ---
+  - name: openclaw
+    endpoints:
+      - host: api.openclaw.ai
+        port: 443
+        protocol: rest
+        enforcement: enforce
+      - host: docs.openclaw.ai
+        port: 443
+        protocol: rest
+        enforcement: enforce
+    binaries:
+      - /usr/bin/node
+    rules:
+      - method: GET
+        path: /**
+
+  # --- baseline: npm registry (package installs) ---
+  - name: npm
+    endpoints:
+      - host: registry.npmjs.org
+        port: 443
+        protocol: rest
+        access: full          # L4 tunnel — package managers need raw TLS, not L7 inspection
+    binaries:
+      - /usr/bin/npm
+      - /usr/bin/node
+
+  # --- balanced preset: PyPI ---
+  - name: pypi
+    endpoints:
+      - host: pypi.org
+        port: 443
+        protocol: rest
+        access: full
+      - host: files.pythonhosted.org
+        port: 443
+        protocol: rest
+        access: full
+    binaries:
+      - /usr/bin/pip*
+      - /usr/bin/python*
+
+  # --- balanced preset: Hugging Face (read-only model/dataset pulls) ---
+  - name: huggingface
+    endpoints:
+      - host: huggingface.co
+        port: 443
+        protocol: rest
+        enforcement: enforce
+    binaries:
+      - /usr/bin/python*
+    rules:
+      - method: GET
+        path: /**
+
+# Static, creation-locked fields below: changing them recreates the sandbox.
+filesystem:
+  read_write:
+    - /sandbox
+    - /tmp
+  read_only:
+    - /usr
+    - /etc
+    - /lib
+    - /bin
+
+process:
+  # Only these executables may run inside the sandbox.
+  allowed_binaries:
+    - /usr/bin/node
+    - /usr/bin/npm
+    - /usr/bin/python*
+    - /usr/bin/pip*
+    - /bin/sh
+    - /bin/bash

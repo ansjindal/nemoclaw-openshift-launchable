@@ -1,0 +1,29 @@
+# OpenShell gateway on OpenShift/MicroShift — OFFICIAL OpenShift overrides.
+# Per the chart's "install-on-openshift" section + docs.nvidia.com/openshell/kubernetes/setup.
+# The chart IS the Kubernetes compute driver (gateway runs in-cluster, creates sandbox pods
+# via the agent-sandbox CRD). These overrides let OpenShift's SCC assign UID/fsGroup from the
+# namespace range instead of the chart's hardcoded 1000 — the supported OpenShift posture.
+
+server:
+  # TLS terminated at the edge (Route); gateway listens plaintext in-cluster.
+  disableTls: true
+  logLevel: info
+  # No local GPU in this topology — leave runtimeClassName empty (CPU sandboxes).
+  defaultRuntimeClassName: ""
+  sandboxJwt:
+    # On OpenShift the gateway runs as a random namespace-range UID (we null the
+    # securityContext), which does NOT own the JWT signing-key Secret. The default mount
+    # mode 0400 (owner-read only) then yields "Permission denied" reading signing.pem and
+    # the gateway crash-loops. 0444 makes the key world-readable so any assigned UID can
+    # read it. (Per the chart's own sandboxJwt.secretDefaultMode guidance.)
+    secretDefaultMode: "0444"
+
+# Let OpenShift's SCC assign these (do NOT hardcode UID/fsGroup on OpenShift).
+podSecurityContext:
+  fsGroup: null
+securityContext:
+  runAsUser: null
+
+# Restrict SSH ingress on sandbox pods to the gateway (chart default).
+networkPolicy:
+  enabled: true

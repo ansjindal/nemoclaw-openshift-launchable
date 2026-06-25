@@ -1,0 +1,23 @@
+# Route exposing the OpenClaw gateway endpoint / control UI (port 18789).
+# OpenClaw serves plaintext HTTP/WebSocket on 18789, so use edge termination: the router
+# does TLS and forwards HTTP (WebSocket upgrades pass through edge routes).
+# The Sandbox sets gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback=true so the
+# UI is reachable via this external host.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: openclaw
+  labels:
+    app.kubernetes.io/name: openclaw
+  annotations:
+    haproxy.router.openshift.io/timeout: "300s"
+spec:
+  to:
+    kind: Service
+    name: openclaw
+    weight: 100
+  port:
+    targetPort: 18789
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

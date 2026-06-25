@@ -1,0 +1,141 @@
+# OpenClaw agent as an agent-sandbox Sandbox on MicroShift. The agent-sandbox controller
+# reconciles this into an OpenClaw gateway pod. Config (with the custom inference endpoint)
+# comes from the openclaw-config Secret; the gateway PASSWORD from the openclaw-gateway-password
+# Secret. Both are created by 45-openclaw.sh from your .env.
+#
+# Auth UX: the gateway runs --auth password with a fixed (known) password so workshop users
+# don't have to copy a random token. A pair-approver sidecar auto-approves device pairing
+# (remote clients aren't auto-trusted as "local"), so users only ever enter the password.
+apiVersion: agents.x-k8s.io/v1beta1
+kind: Sandbox
+metadata:
+  name: openclaw-sandbox
+spec:
+  podTemplate:
+    metadata:
+      labels:
+        sandbox: openclaw-sandbox
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      # Seed the agent's identity/soul/kickoff into the workspace BEFORE the gateway boots,
+      # so the agent comes online already knowing who it is (no "who am I" interview).
+      # cp -n = don't clobber: fresh PVC gets the workshop persona; attendee edits survive
+      # restarts. Files come from the openclaw-workspace-seed ConfigMap (45-openclaw.sh).
+      initContainers:
+        - name: seed-workspace
+          image: ghcr.io/openclaw/openclaw:2026.3.23
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              for f in IDENTITY.md SOUL.md BOOTSTRAP.md; do
+                [ -f "/seed/$f" ] && cp -n "/seed/$f" "/workspace/$f" || true
+              done
+              echo "workspace seeded:"; ls -1 /workspace
+          volumeMounts:
+            - mountPath: /workspace
+              name: workspaces-pvc
+            - mountPath: /seed
+              name: workspace-seed
+              readOnly: true
+      containers:
+        - name: openclaw
+          image: ghcr.io/openclaw/openclaw:2026.3.23
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: OPENCLAW_CONFIG_PATH
+              value: "/etc/openclaw/openclaw.json"
+            # Password via env (not --password-file): secret volumes mount as symlinks,
+            # and OpenClaw refuses a symlinked password file. The gateway reads
+            # OPENCLAW_GATEWAY_PASSWORD when --auth password is set.
+            - name: OPENCLAW_GATEWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-gateway-password
+                  key: password
+          command:
+            - node
+            - dist/index.js
+            - gateway
+            - --bind=lan
+            - --port
+            - "18789"
+            - --allow-unconfigured
+            # Fixed-password auth: users type the known password (from .env, surfaced by
+            # 45-openclaw.sh) instead of copying a random per-deploy token.
+            - --auth
+            - password
+            - --verbose
+          ports:
+            - containerPort: 18789
+            - containerPort: 18790
+          volumeMounts:
+            - mountPath: /home/node/.openclaw/workspace
+              name: workspaces-pvc
+            - mountPath: /home/node/.openclaw
+              name: config-volume
+            - mountPath: /etc/openclaw
+              name: cm-volume
+        # Auto-approve device pairing so users only ever provide the password. Remote
+        # clients (via NodePort) aren't seen as "local", so the gateway won't silently
+        # pair them — this sidecar runs the shipped `openclaw devices approve` as a
+        # loopback (local) client to clear pending requests every few seconds.
+        - name: pair-approver
+          image: ghcr.io/openclaw/openclaw:2026.3.23
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: GW_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openclaw-gateway-password
+                  key: password
+          command:
+            - sh
+            - -c
+            - |
+              while true; do
+                node dist/index.js devices approve --latest \
+                  --password "$GW_PASSWORD" --url ws://127.0.0.1:18789 >/dev/null 2>&1 || true
+                sleep 3
+              done
+      volumes:
+        - name: workspace-seed
+          configMap:
+            name: openclaw-workspace-seed
+            optional: true
+        - name: config-volume
+          emptyDir: {}
+        - name: cm-volume
+          secret:                       # Secret (holds the API key), not a ConfigMap
+            secretName: openclaw-config
+            items:
+              - key: openclaw.json
+                path: openclaw.json
+  volumeClaimTemplates:
+    - metadata:
+        name: workspaces-pvc
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
