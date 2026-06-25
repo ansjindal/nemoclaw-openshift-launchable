@@ -25,12 +25,18 @@ CONTAINER_ENGINE=${CONTAINER_ENGINE:-podman}
 NEMOCLAW_INFERENCE_BASE_URL=${NEMOCLAW_INFERENCE_BASE_URL:-}
 NEMOCLAW_MODEL=${NEMOCLAW_MODEL:-}
 NEMOCLAW_API_KEY=${NEMOCLAW_API_KEY:-}
-OPENCLAW_GATEWAY_PASSWORD=${OPENCLAW_GATEWAY_PASSWORD:-openclaw}
+OPENCLAW_GATEWAY_PASSWORD=${OPENCLAW_GATEWAY_PASSWORD:-openshell-wad26}
 DEPLOY_CONSOLE=${DEPLOY_CONSOLE:-true}
 EOF
 
-echo "[brev-setup] running setup.sh (full output also at \$HOME/setup.log) ..."
-./scripts/setup.sh 2>&1 | tee "$HOME/setup.log"
+echo "[brev-setup] running setup.sh (live; also saved to \$HOME/setup.log) ..."
+# FOREGROUND + line-buffered: the Brev "Script Logs" panel reads our stdout through a pipe,
+# which block-buffers by default and makes the panel look empty until the very end. stdbuf
+# forces line buffering so each phase's progress streams live. (We run foreground, not
+# detached, precisely so you can watch progress in the UI without SSH.)
+stdbuf -oL -eL ./scripts/setup.sh 2>&1 | stdbuf -oL tee "$HOME/setup.log"
 rc=${PIPESTATUS[0]}
 echo "[brev-setup] setup.sh exit code: $rc"
+[ "$rc" -eq 0 ] && echo "[brev-setup] ✅ stack up — open the openclaw / openshift tunnels." \
+               || echo "[brev-setup] ❌ failed (rc=$rc) — see the log above or \$HOME/setup.log."
 exit "$rc"
