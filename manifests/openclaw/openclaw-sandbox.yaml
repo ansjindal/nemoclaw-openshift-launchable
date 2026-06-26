@@ -8,7 +8,9 @@
 # Auth UX: the gateway runs --auth password with a fixed (known) password so workshop users
 # don't have to copy a random token. A pair-approver sidecar auto-approves device pairing
 # (remote clients aren't auto-trusted as "local"), so users only ever enter the password.
-apiVersion: agents.x-k8s.io/v1beta1
+# NOTE: v1alpha1 — agent-sandbox is pinned to v0.4.6 (v1alpha1-only) so the OpenShell
+# gateway's ownership check passes. Using v1beta1 here fails: "no matches for kind Sandbox".
+apiVersion: agents.x-k8s.io/v1alpha1
 kind: Sandbox
 metadata:
   name: openclaw-sandbox

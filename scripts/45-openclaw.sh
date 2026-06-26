@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Phase 45 — run the OpenClaw agent as a Sandbox (agents.x-k8s.io/v1beta1) on MicroShift,
+# Phase 45 — run the OpenClaw agent as a Sandbox (agents.x-k8s.io/v1alpha1) on MicroShift,
 # pointed at the REMOTE custom OpenAI-compatible inference endpoint, and expose its gateway
 # endpoint (port 18789) via an OpenShift Route.
 #

@@ -16,10 +16,10 @@ The lab shell has an `expose-agent` helper. Point it at your sandbox + the port 
 expose-agent pod-doctor 8000
 ```
 
-That publishes the sandbox's `:8000` at the host's **`30950`** "demo" tunnel. Open **port `30950`** from your Brev instance page — your copilot's endpoint, live in the browser.
+Now open **port `8000`** from your Brev instance page — your copilot's endpoint, live in the browser.
 
-<Callout type="note" title="How it works">
-<code>expose-agent</code> creates a NodePort Service selecting your sandbox pod and pins it to <code>30950</code> (already published by the host forwarder). Under the hood it's a normal OpenShift Service — the same way Shifty's UI reaches you on <code>30789</code>. One demo at a time per instance.
+<Callout type="note" title="Why not just a NodePort?">
+A gateway-created sandbox is <strong>network-isolated by its supervisor</strong> — the agent's listening port lives in a private network namespace, so a plain NodePort to the pod can't see it. <code>expose-agent</code> uses OpenShell's own <code>openshell forward start</code>, which bridges the port <em>through the gateway + supervisor</em>. (Stop it with <code>openshell forward stop</code>; one forward at a time.)
 </Callout>
 
 ## Two surfaces to choose from

@@ -10,16 +10,19 @@ openclaw() {
   oc -n openclaw exec openclaw-sandbox -c openclaw -- node dist/index.js "$@"
 }
 
-# expose-agent <sandbox> [port=8000] [ns=openshell] — publish a sandbox's HTTP port at the
-# host's :30950 "demo" tunnel, so you can show your copilot's own endpoint via the Brev URL.
-# (One demo at a time — 30950 is the shared demo port on this instance.)
+# expose-agent <sandbox> [port=8000] — publish a sandbox's HTTP endpoint at a host port so
+# you can demo your copilot via the Brev URL. A gateway sandbox is network-isolated by its
+# supervisor (the agent's port lives in a private netns), so a plain NodePort can't reach it
+# — we use OpenShell's own `forward`, which bridges the port through the gateway+supervisor.
 expose-agent() {
-  local sb="${1:?usage: expose-agent <sandbox> [port=8000] [ns=openshell]}" port="${2:-8000}" ns="${3:-openshell}"
-  oc -n "$ns" expose pod "$sb" --name "demo-$sb" --type NodePort --port "$port" --target-port "$port" >/dev/null 2>&1 || true
-  oc -n "$ns" patch svc "demo-$sb" --type merge \
-    -p '{"spec":{"type":"NodePort","ports":[{"port":'"$port"',"targetPort":'"$port"',"nodePort":30950}]}}' >/dev/null 2>&1 \
-    && echo "✓ $ns/$sb:$port → open host port 30950 on your Brev instance to demo it" \
-    || echo "✗ could not expose $sb (is the pod running, and serving on :$port?)"
+  local sb="${1:?usage: expose-agent <sandbox> [port=8000]}" port="${2:-8000}"
+  openshell forward stop >/dev/null 2>&1
+  if openshell forward start "0.0.0.0:$port" "$sb" --background >/dev/null 2>&1; then
+    echo "✓ forwarding host :$port → $sb — open host port $port on your Brev instance to demo it"
+    echo "  (stop with: openshell forward stop)"
+  else
+    echo "✗ forward failed — is $sb Running and serving HTTP on :$port?"
+  fi
 }
 
 PS1='\[\e[1;32m\]oclaw-lab\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]$ '
