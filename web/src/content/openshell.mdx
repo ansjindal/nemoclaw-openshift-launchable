@@ -1,9 +1,12 @@
 **OpenShell** (NVIDIA) is the piece that makes “run an AI agent safely” real. It's a **sandbox control plane**: agents don't run wherever they like — they ask OpenShell for a sandbox, and it creates an isolated, policy-bound pod.
 
-## What OpenShell does
-- **Watches a custom resource** — it reconciles the agent-sandbox CRD (`sandboxes.agents.x-k8s.io`); when one appears, it stands up a matching sandbox pod.
-- **Enforces policy** — each sandbox runs under a policy bounding what it can touch (filesystem, network, tools). Deny-by-default is the norm.
-- **Brokers the control surface** for the sandbox.
+## How it works
+
+Click through the path an agent request takes to become a sandboxed pod:
+
+<OpenShellArch />
+
+In short: it **watches** the agent-sandbox CRD, **reconciles** each one into a policy-bound pod (deny-by-default), and **brokers** the sandbox's control surface and egress.
 
 <Callout type="note" title="“NemoClaw's gateway” = the OpenShell gateway">
 The OpenShell control plane (port 8080) is the platform's sandbox API — distinct from the OpenClaw agent's own control UI you open in a browser.

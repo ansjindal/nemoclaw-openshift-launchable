@@ -1,10 +1,10 @@
 **OpenClaw** is the agent itself. It's deployed as an agent-sandbox `Sandbox`, which OpenShell reconciles into a pod running the OpenClaw **gateway** — a web *control UI* on port `18789` where you chat with and steer the agent.
 
 ## Inside the sandbox
-- **The agent runtime** — plans, calls tools, edits a workspace.
-- **The control UI / gateway** — your browser window into the agent.
-- **A config** — points the agent at a model (OpenAI-compatible) and holds the API key.
-- **A workspace volume** — the agent's files, memory, and identity.
+
+Click each piece to see what it does:
+
+<OpenClawArch />
 
 ## How it thinks: the model
 OpenClaw ships no model. Its config declares a *provider* — base URL, API key, model id — using the OpenAI-compatible shape. We point it at a remote endpoint (e.g. an NVIDIA NIM). You'll configure this in **Part IV · Add a Model**.

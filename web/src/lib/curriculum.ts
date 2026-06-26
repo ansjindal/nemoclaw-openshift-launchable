@@ -42,6 +42,7 @@ export const CURRICULUM: Part[] = [
     subtitle: "Run real commands against your agent",
     accent: "nv",
     lessons: [
+      { slug: "soul", title: "Meet Shifty: Identity & Soul", blurb: "The workspace .md files that ARE the agent’s memory and personality.", minutes: 8, hasLab: true },
       { slug: "pairing", title: "Device Pairing: list & approve", blurb: "Approve your browser the real way: openclaw devices list / approve.", minutes: 10, hasLab: true },
       { slug: "models", title: "Add a Model & Reload", blurb: "Point Shifty at an inference endpoint and reload its config.", minutes: 10, hasLab: true },
       { slug: "openshell-ops", title: "OpenShell & Cluster Ops", blurb: "Inspect sandboxes, pods, logs, and policy from the shell.", minutes: 10, hasLab: true },

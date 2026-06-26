@@ -4,12 +4,16 @@ import { Callout } from "@/components/Callout";
 import { CodeBlock } from "@/components/CodeBlock";
 import { StackDiagram } from "@/components/diagrams/StackDiagram";
 import { CopilotFlow } from "@/components/diagrams/CopilotFlow";
+import { OpenClawArch } from "@/components/diagrams/OpenClawArch";
+import { OpenShellArch } from "@/components/diagrams/OpenShellArch";
 
 const components: MDXComponents = {
   Terminal,
   Callout,
   StackDiagram,
   CopilotFlow,
+  OpenClawArch,
+  OpenShellArch,
   pre: CodeBlock, // every fenced code block gets a Copy / Run-in-shell toolbar
 };
 

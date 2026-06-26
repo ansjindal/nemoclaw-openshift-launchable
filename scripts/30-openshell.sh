@@ -46,8 +46,10 @@ done
 VERSION_ARG=()
 [[ -n "${OPENSHELL_VERSION:-}" ]] && VERSION_ARG=(--version "$OPENSHELL_VERSION")
 
-log "helm install openshell (in-cluster gateway = Kubernetes compute driver)"
-helm install openshell "$CHART" "${VERSION_ARG[@]}" \
+log "helm upgrade --install openshell (in-cluster gateway = Kubernetes compute driver)"
+# upgrade --install is idempotent — a re-run reuses the existing release instead of failing
+# with "cannot re-use a name that is still in use".
+helm upgrade --install openshell "$CHART" "${VERSION_ARG[@]}" \
   -n "$NS" \
   -f "$REPO_ROOT/helm/openshell-values.yaml" \
   --wait --timeout 10m

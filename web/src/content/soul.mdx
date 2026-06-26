@@ -1,0 +1,43 @@
+Shifty isn't configured by a settings panel — it's shaped by **Markdown files in its workspace**. These files *are* the agent's memory and personality. Each session it "wakes up," reads them, and acts accordingly. Let's read them in the shell.
+
+## The workspace
+
+```bash
+oc -n openclaw exec openclaw-sandbox -c openclaw -- ls -la /home/node/.openclaw/workspace
+```
+
+You'll see a handful of `.md` files (and a `.git` — the agent version-controls its own memory).
+
+## The files, and what each does
+
+- **`IDENTITY.md`** — *who* the agent is: name, creature, vibe, emoji. We seeded Shifty's.
+- **`SOUL.md`** — *how* it behaves: its values and boundaries (be helpful, have opinions, confirm risky actions). The closest thing to a system prompt you can edit.
+- **`BOOTSTRAP.md`** — the first-run kickoff (a “who am I?” interview). We replaced it with a workshop welcome so Shifty boots ready.
+- **`AGENTS.md`** — house rules / capabilities the agent follows.
+- **`TOOLS.md`**, **`USER.md`**, **`HEARTBEAT.md`** — tools available, facts about you, and the periodic check-in.
+
+Read Shifty's identity and soul:
+
+```bash
+oc -n openclaw exec openclaw-sandbox -c openclaw -- cat /home/node/.openclaw/workspace/IDENTITY.md
+```
+
+```bash
+oc -n openclaw exec openclaw-sandbox -c openclaw -- cat /home/node/.openclaw/workspace/SOUL.md
+```
+
+<Callout type="note" title="Seeded, not hard-coded">
+These were placed by the launchable's <code>workspace-seed</code> (an initContainer copies them in, create-if-missing). On a fresh agent they appear automatically; your edits persist.
+</Callout>
+
+## Make it yours
+
+The best way to edit them is to *ask the agent* — open the OpenClaw UI and say:
+
+> “Open your SOUL.md and add a rule: always show me the `oc` command before running it.”
+
+Shifty edits its own brain — that's the workspace-as-memory model. Or edit the seed files in the repo (`manifests/openclaw/workspace-seed/`) and redeploy for a new default.
+
+<Callout type="tip" title="Why this matters for the hackathon">
+Your Cluster Copilot's behavior lives in <code>SOUL.md</code>/<code>AGENTS.md</code>. Want it to always confirm writes, or to prefer read-only <code>oc</code>? Write it there.
+</Callout>
