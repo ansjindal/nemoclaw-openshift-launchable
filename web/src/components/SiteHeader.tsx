@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function SiteHeader() {
   return (
@@ -18,6 +19,7 @@ export function SiteHeader() {
         <span className="rounded-full border border-[rgba(238,0,0,0.35)] px-2.5 py-1 text-[var(--color-rh-bright)]">Red Hat</span>
         <span className="rounded-full border border-[rgba(118,185,0,0.35)] px-2.5 py-1 text-[var(--color-nv-bright)]">NVIDIA</span>
         <span className="hidden rounded-full border border-[var(--color-line-2)] px-2.5 py-1 md:inline">WeAreDevelopers 2026</span>
+        <ThemeToggle />
       </div>
     </header>
   );

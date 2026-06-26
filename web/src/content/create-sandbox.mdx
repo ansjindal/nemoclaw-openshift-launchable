@@ -48,7 +48,32 @@ It's a real, isolated sandbox — exec in:
 oc -n openclaw exec hello-sandbox -- sh -c 'echo "hello from a brand-new sandbox"; hostname'
 ```
 
-## 4. Tear it down
+## 4. Customize it — give the sandbox an identity
+
+A sandbox is yours to shape. You control its filesystem — write files into it:
+
+```bash
+oc -n openclaw exec hello-sandbox -- sh -c 'mkdir -p /workspace && cat > /workspace/IDENTITY.md <<MD
+Name: Scout
+Creature: a curious recon bot 🔭
+Vibe: terse, precise, read-only
+MD
+cat /workspace/IDENTITY.md'
+```
+
+For a real **OpenClaw** agent, a file exactly like this in its workspace becomes its persona (the same `IDENTITY.md`/`SOUL.md` you met in *Meet Shifty*). So to spin a **custom agent**, you'd declare a Sandbox that (a) uses the OpenClaw image and (b) seeds its own `IDENTITY.md`/`SOUL.md` + config — the pattern the launchable uses for Shifty (`manifests/openclaw/workspace-seed/` + an initContainer):
+
+```bash
+# sketch: a customized agent = OpenClaw image + your own seeded identity/config
+#   spec.podTemplate.spec.initContainers: copy your IDENTITY.md/SOUL.md into the workspace
+#   spec.podTemplate.spec.containers[0]: ghcr.io/openclaw/openclaw + gateway args
+```
+
+<Callout type="tip" title="Your hackathon agents">
+Each teammate can spin their <em>own</em> named agent with its own identity and policy — they're all just <code>Sandbox</code> CRs. Give one a recon personality, another a remediation one.
+</Callout>
+
+## 5. Tear it down
 
 Because we set `shutdownPolicy: Delete`, removing the CR removes the pod:
 
