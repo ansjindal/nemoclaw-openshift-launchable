@@ -4,6 +4,17 @@
 crds:
   enabled: true
 
+# The prometheus-operator ships an admission webhook whose TLS cert is created by a
+# pre-install/pre-upgrade `kube-webhook-certgen` Job. On OpenShift that hook Job runs
+# under the restricted SCC and times out ("pre-upgrade hooks failed: timed out waiting
+# for the condition"), failing the whole release. The webhook only validates
+# PrometheusRule CRs — safe to disable on a single-node workshop.
+prometheusOperator:
+  admissionWebhooks:
+    enabled: false
+  tls:
+    enabled: false
+
 prometheus:
   prometheusSpec:
     retention: 2d
