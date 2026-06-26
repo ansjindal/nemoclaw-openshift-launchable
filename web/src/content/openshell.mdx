@@ -1,18 +1,28 @@
-**OpenShell** (NVIDIA) is the piece that makes “run an AI agent safely” real. It's a **sandbox control plane**: agents don't run wherever they like — they ask OpenShell for a sandbox, and it creates an isolated, policy-bound pod.
+**OpenShell** (NVIDIA) is what makes “run an AI agent safely” real. It's not a single process — it's a **gateway** with several parts, sitting on top of an open-source Kubernetes primitive.
 
-## How it works
+## The parts of OpenShell
 
-Click through the path an agent request takes to become a sandboxed pod:
+Click each piece — these are the components people mean by "OpenShell":
 
 <OpenShellArch />
 
-In short: it **watches** the agent-sandbox CRD, **reconciles** each one into a policy-bound pod (deny-by-default), and **brokers** the sandbox's control surface and egress.
+The short version:
 
-<Callout type="note" title="“NemoClaw's gateway” = the OpenShell gateway">
-The OpenShell control plane (port 8080) is the platform's sandbox API — distinct from the OpenClaw agent's own control UI you open in a browser.
+- **Gateway** — the control plane (gRPC :8080). Everything below lives here.
+- **Compute driver** — creates and watches sandboxes (writes `Sandbox` CRs).
+- **Inference router (L7 proxy)** — every sandbox calls one URL, `inference.local`; the gateway strips the sandbox's creds and injects the real backend key + model, so the agent **never holds the upstream key**.
+- **Supervisor** (`openshell-sandbox`) — sideloaded into each sandbox to bootstrap and oversee the agent + enforce sandbox-side policy.
+- **Policy + mTLS** — deny-by-default L7 rules (the schema in `policies/`) plus mTLS between components.
+- **agent-sandbox** — the open-source [**kubernetes-sigs/agent-sandbox**](https://github.com/kubernetes-sigs/agent-sandbox) CRD + controller it all builds on.
+
+## The relationship to agent-sandbox (the SIG project)
+
+The bottom layer is community Kubernetes, not NVIDIA-specific: the `Sandbox` CRD (`agents.x-k8s.io`) and its controller come from **kubernetes-sigs/agent-sandbox**. OpenShell adds the gateway, the inference privacy router, the supervisor, and policy *on top* of that primitive. That's why `oc get sandboxes -A` works with plain `oc` — they're standard Kubernetes objects.
+
+<Callout type="note" title="What our minimal launchable uses">
+This workshop deploys OpenClaw as a <strong>direct Sandbox CR</strong> and points inference straight at a remote endpoint — so we exercise the <strong>gateway + agent-sandbox controller</strong> directly. The inference L7 proxy and the in-sandbox supervisor are how the full product wires multi-tenant <em>fleets</em> (see NVIDIA's fleet demos). You'll see the gateway and the CRD for real in the next lessons.
 </Callout>
 
-## On OpenShift
-OpenShell installs from a Helm chart. The workshop scripts handle the OpenShift specifics: install the agent-sandbox CRD, grant the right SCCs to the OpenShell service accounts, and fix a few fsGroup/runAsUser defaults so it schedules cleanly on MicroShift.
-
-You'll inspect the running gateway in **Part IV · OpenShell & Cluster Ops**.
+<Callout type="note" title="“NemoClaw's gateway” = the OpenShell gateway">
+You'll hear "gateway" twice: the <strong>OpenShell gateway</strong> (control plane, :8080) and the <strong>OpenClaw gateway</strong> (the agent's own control UI, :18789). Different things — keep them straight.
+</Callout>
