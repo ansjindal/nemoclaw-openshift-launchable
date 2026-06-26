@@ -1,49 +1,62 @@
-Now poke around the running system from the shell — this is how you'll debug and operate during the hackathon.
+Before you run agent commands, understand the layer that *manages* the agent: **OpenShell**, the sandbox control plane. Everything here is plain `oc` against the cluster — no agent involved yet.
 
-## The agent sandbox
+## The OpenShell gateway
 
-OpenShell reconciles a `Sandbox` custom resource into the agent pod. Look at it:
+OpenShell runs as a StatefulSet. Look at it:
 
 ```bash
-oc -n openclaw get sandbox,pod
+oc -n openshell get statefulset,pods,svc
+```
+
+Its **Kubernetes compute driver** continuously watches for sandboxes. A healthy gateway logs it every minute:
+
+```bash
+oc -n openshell logs openshell-0 | grep -i "Listing sandboxes" | tail -3
+```
+
+`Listing sandboxes from Kubernetes` = the control plane is alive and watching.
+
+## The sandbox API (a CRD)
+
+A “sandbox” is a Kubernetes custom resource — `sandboxes.agents.x-k8s.io`. That's how the platform represents an agent's isolated home:
+
+```bash
+oc get crd sandboxes.agents.x-k8s.io
+```
+
+### List sandboxes
+
+This is the command you asked about — list every sandbox across the cluster:
+
+```bash
+oc get sandboxes -A
+```
+
+You'll see `openclaw/openclaw-sandbox` — that's Shifty. Inspect it:
+
+```bash
 oc -n openclaw describe sandbox openclaw-sandbox | head -40
 ```
 
-## Gateway logs & plugins
+## Policies — what a sandbox may do
+
+Two layers bound a sandbox:
+
+**L4 network (applied)** — a deny-by-default NetworkPolicy:
 
 ```bash
-oc -n openclaw logs openclaw-sandbox -c openclaw | tail -30
+oc -n openclaw get networkpolicy
+oc -n openclaw describe networkpolicy openclaw-deny-by-default | head -30
 ```
 
-You'll see the gateway listening on `:18789` and its loaded plugins (browser, canvas, device-pair, memory, …).
-
-## OpenShell gateway (the platform control plane)
-
-The OpenShell gateway (port 8080) is the sandbox control plane — distinct from OpenClaw's UI. Check it:
+**L7 (OpenShell policy schema)** — the per-binary/method/path rules in the repo's `policies/` (deny-by-default, balanced tier), enforced when the agent runs under OpenShell's policy engine:
 
 ```bash
-oc -n openshell get pods,svc,route
-oc -n openshell logs statefulset/openshell | grep -i "Listing sandboxes" | tail -1
+sed -n '1,40p' ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml
 ```
 
-That `Listing sandboxes from Kubernetes` line means the compute driver is healthy.
-
-## Cluster basics
-
-```bash
-oc get nodes
-oc get pods -A | grep -vE "Running|Completed" || echo ALL-RUNNING
-oc -n openclaw get events --sort-by=.lastTimestamp | tail -10
-```
-
-## OpenClaw CLI tour
-
-```bash
-openclaw --help
-openclaw config validate
-openclaw devices list
-```
-
-<Callout type="tip" title="Everything is `oc`-driven">
-The whole stack is standard Kubernetes objects. Anything you learn here — describe, logs, events, scale — is exactly what you'd do on production OpenShift.
+<Callout type="note" title="Who reconciles the sandbox?">
+The agent-sandbox <strong>controller</strong> (installed with OpenShell in phase 30) turns the <code>Sandbox</code> CR into a real pod, under the namespace's RBAC + Security Context Constraints. OpenShell is the broader control plane / supervisor for sandboxes.
 </Callout>
+
+Next: go *into* the sandbox and run the agent's own CLI.
