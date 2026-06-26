@@ -8,6 +8,10 @@ server:
   # TLS terminated at the edge (Route); gateway listens plaintext in-cluster.
   disableTls: true
   logLevel: info
+  # DEV/WORKSHOP ONLY: accept unauthenticated CLI calls so gateway-driven creation
+  # (`openshell sandbox create`) works without OIDC/Keycloak. Not for production.
+  auth:
+    allowUnauthenticatedUsers: true
   # No local GPU in this topology — leave runtimeClassName empty (CPU sandboxes).
   defaultRuntimeClassName: ""
   sandboxJwt:
