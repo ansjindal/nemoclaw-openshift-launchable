@@ -6,6 +6,9 @@ import { StackDiagram } from "@/components/diagrams/StackDiagram";
 import { CopilotFlow } from "@/components/diagrams/CopilotFlow";
 import { OpenClawArch } from "@/components/diagrams/OpenClawArch";
 import { OpenShellArch } from "@/components/diagrams/OpenShellArch";
+import { OpenShellRuntime } from "@/components/diagrams/OpenShellRuntime";
+import { DeployTopology } from "@/components/diagrams/DeployTopology";
+import { OpenShellConsole } from "@/components/diagrams/OpenShellConsole";
 import { SandboxFlow } from "@/components/diagrams/SandboxFlow";
 import { SecurityLayers } from "@/components/diagrams/SecurityLayers";
 
@@ -16,6 +19,9 @@ const components: MDXComponents = {
   CopilotFlow,
   OpenClawArch,
   OpenShellArch,
+  OpenShellRuntime,
+  DeployTopology,
+  OpenShellConsole,
   SandboxFlow,
   SecurityLayers,
   pre: CodeBlock, // every fenced code block gets a Copy / Run-in-shell toolbar
