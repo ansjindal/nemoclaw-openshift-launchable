@@ -47,6 +47,7 @@ export const CURRICULUM: Part[] = [
       { slug: "soul", title: "Meet Shifty: Identity & Soul", blurb: "The workspace .md files that ARE the agent’s memory and personality.", minutes: 8, hasLab: true },
       { slug: "pairing", title: "Device Pairing: list & approve", blurb: "Approve your browser the real way: openclaw devices list / approve.", minutes: 10, hasLab: true },
       { slug: "models", title: "Add a Model & Reload", blurb: "Point Shifty at an inference endpoint and reload its config.", minutes: 10, hasLab: true },
+      { slug: "create-sandbox", title: "Create a New Sandbox", blurb: "The full lifecycle: declare a Sandbox CR, watch it reconcile into a pod, exec, delete.", minutes: 10, hasLab: true },
     ],
   },
   {

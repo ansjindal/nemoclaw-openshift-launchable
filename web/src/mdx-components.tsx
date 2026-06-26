@@ -6,6 +6,7 @@ import { StackDiagram } from "@/components/diagrams/StackDiagram";
 import { CopilotFlow } from "@/components/diagrams/CopilotFlow";
 import { OpenClawArch } from "@/components/diagrams/OpenClawArch";
 import { OpenShellArch } from "@/components/diagrams/OpenShellArch";
+import { SandboxFlow } from "@/components/diagrams/SandboxFlow";
 
 const components: MDXComponents = {
   Terminal,
@@ -14,6 +15,7 @@ const components: MDXComponents = {
   CopilotFlow,
   OpenClawArch,
   OpenShellArch,
+  SandboxFlow,
   pre: CodeBlock, // every fenced code block gets a Copy / Run-in-shell toolbar
 };
 

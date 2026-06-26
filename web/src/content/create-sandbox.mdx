@@ -1,0 +1,66 @@
+You've seen Shifty's sandbox and configured it. Now create a **brand-new sandbox from scratch** and watch the whole lifecycle — the same machinery the platform uses for every agent.
+
+## The flow
+
+<SandboxFlow />
+
+In this lab we'll use the **direct CR path** (apply a `Sandbox` with `oc`). In a richer, multi-tenant setup a client would instead call the **OpenShell gateway** (gRPC :8080), which writes the same CR for you — but the reconcile → schedule → run steps are identical.
+
+## 1. Declare a Sandbox
+
+A `Sandbox` (`agents.x-k8s.io/v1beta1`) needs only a `podTemplate`. We reuse the OpenClaw image (already on the node) with a simple sleep command so there's no pull:
+
+```bash
+cat <<'EOF' | oc apply -f -
+apiVersion: agents.x-k8s.io/v1beta1
+kind: Sandbox
+metadata:
+  name: hello-sandbox
+  namespace: openclaw
+spec:
+  shutdownPolicy: Delete
+  podTemplate:
+    spec:
+      containers:
+        - name: shell
+          image: ghcr.io/openclaw/openclaw:2026.6.10
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "echo ready; sleep 3600"]
+EOF
+```
+
+## 2. Watch it reconcile
+
+The **agent-sandbox controller** turns your CR into a pod. List sandboxes and watch the pod appear:
+
+```bash
+oc get sandboxes -A
+oc -n openclaw get pod hello-sandbox -w
+```
+
+(Once it's `Running`, press Ctrl-C to stop watching.)
+
+## 3. Run something inside it
+
+It's a real, isolated sandbox — exec in:
+
+```bash
+oc -n openclaw exec hello-sandbox -- sh -c 'echo "hello from a brand-new sandbox"; hostname'
+```
+
+## 4. Tear it down
+
+Because we set `shutdownPolicy: Delete`, removing the CR removes the pod:
+
+```bash
+oc -n openclaw delete sandbox hello-sandbox
+oc get sandboxes -A
+```
+
+<Callout type="rh" title="This is the whole model">
+Declare desired state (a CR) → a controller reconciles it into a pod → OpenShift enforces RBAC/SCC/NetworkPolicy → you use it → delete to clean up. Every agent, including Shifty, is just a <code>Sandbox</code> on this same path.
+</Callout>
+
+<Callout type="tip" title="Hackathon angle">
+Your Cluster Copilot could <em>create sandboxes on demand</em> — spin a scratch sandbox to run a risky command, then delete it. The CR + controller pattern makes that a few lines of YAML.
+</Callout>
