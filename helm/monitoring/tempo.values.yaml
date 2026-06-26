@@ -1,0 +1,16 @@
+# Grafana Tempo (monolithic) — tracing backend. Receives OTLP (gRPC 4317 / HTTP 4318)
+# from in-cluster apps and is wired into Grafana as the "Tempo" datasource.
+tempo:
+  storage:
+    trace:
+      backend: local
+      local:
+        path: /var/tempo/traces
+  metricsGenerator:
+    enabled: false
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+persistence:
+  enabled: true
+  storageClassName: local-path
+  size: 3Gi

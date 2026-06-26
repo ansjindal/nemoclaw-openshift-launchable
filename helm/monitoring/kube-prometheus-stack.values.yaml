@@ -1,0 +1,76 @@
+# kube-prometheus-stack on MicroShift/OpenShift — single-node, CPU-modest, NodePort Grafana.
+# (Release name: kps.) Adapted from the openshell-fleet-demo: no OIDC here; Grafana uses
+# local admin login and is exposed on NodePort 30030 (published to the host by phase 50).
+crds:
+  enabled: true
+
+prometheus:
+  prometheusSpec:
+    retention: 2d
+    # Discover ServiceMonitors/PodMonitors created by anything, not just this release.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources: { requests: { storage: 8Gi } }
+    resources:
+      requests: { cpu: 150m, memory: 600Mi }
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources: { requests: { storage: 1Gi } }
+
+grafana:
+  enabled: true
+  defaultDashboardsEnabled: true
+  service:
+    type: NodePort
+    nodePort: 30030
+  persistence:
+    enabled: true
+    type: pvc
+    storageClassName: local-path
+    accessModes: ["ReadWriteOnce"]
+    size: 2Gi
+  # Auto-load dashboards + datasources from labelled ConfigMaps in any namespace.
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+    datasources:
+      enabled: true
+      label: grafana_datasource
+      searchNamespace: ALL
+  # admin password set by the install script via --set adminPassword.
+
+# node-exporter mounts host /proc, /sys, / and binds a host port — on OpenShift it needs
+# the `node-exporter` (or privileged) SCC, granted to its SA by phase 80.
+nodeExporter:
+  enabled: true
+prometheus-node-exporter:
+  hostRootFsMount:
+    enabled: true
+
+kube-state-metrics:
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+
+# MicroShift doesn't expose these control-plane endpoints for scraping — disable to avoid
+# noisy "down" targets.
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeProxy: { enabled: false }
+kubeEtcd: { enabled: false }

@@ -1,0 +1,56 @@
+Want your Cluster Copilot to reason about **metrics**, not just events? Add a full observability stack — and because it's the same OpenShell policy model, you choose exactly what the agent may read.
+
+This phase is **opt-in** (it adds real load): enable it and re-run, or run the phase directly.
+
+## What you get
+
+All in a `monitoring` namespace:
+
+- **Grafana** — dashboards, on NodePort `30030` (login `admin` / `openclaw`).
+- **Prometheus + Alertmanager** — metrics, 2-day retention, with `kube-state-metrics` + `node-exporter`.
+- **Loki** — logs (single-binary, filesystem).
+- **Tempo** — traces (OTLP `4317`/`4318`).
+
+`kube-prometheus-stack` brings Prometheus, Alertmanager, Grafana, node-exporter and kube-state-metrics; **Loki** and **Tempo** are auto-wired into Grafana as datasources. A custom **Agent Fleet** dashboard tracks your sandbox pods' CPU, memory, and restarts.
+
+## Turn it on
+
+```bash
+# in the repo on the instance
+echo 'DEPLOY_MONITORING=true' >> .env
+./scripts/80-monitoring.sh
+```
+
+The phase grants the OpenShift SCCs node-exporter needs, installs the three Helm releases, and exposes Grafana on **NodePort 30030** (already published to the host by the port-forwarder). Open it:
+
+```bash
+oc -n monitoring get pods
+```
+
+Then browse the host's port **30030** (expose it as a Brev tunnel) and log in as `admin` / `openclaw`. Look for the **OpenShell Agent Fleet** dashboard plus the built-in Kubernetes dashboards.
+
+<Callout type="warn" title="It's not free">
+Prometheus + Loki + Tempo add CPU and memory pressure on a single 4-vCPU node. Leave it off for the core workshop; turn it on when you want the metrics-aware copilot.
+</Callout>
+
+## Let the copilot read metrics
+
+Remember the `cluster-copilot.yaml` policy from *Extending Shifty*? It already allows GET to Prometheus:
+
+```yaml
+  - name: prometheus
+    endpoints:
+      - host: kube-prometheus-stack-prometheus.monitoring.svc.cluster.local
+        port: 9090
+        enforcement: enforce
+    rules:
+      - { method: GET, path: /api/v1/** }   # /query, /query_range, ...
+```
+
+So a sandbox created with that policy can hit the Prometheus HTTP API — and nothing else new. Now your copilot can answer:
+
+> "Query Prometheus: which pods in `openclaw` are above their memory request right now?"
+
+<Callout type="rh" title="Same guardrail, new capability">
+You didn't open the agent up — you opened <em>one</em> read-only endpoint, declared in policy and enforced at the proxy. That's the OpenShell story: capability you can audit, line by line.
+</Callout>

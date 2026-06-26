@@ -30,6 +30,12 @@ if [[ "${DEPLOY_WORKSHOP:-true}" == "true" ]]; then
   "$HERE/70-workshop.sh" || warn "phase 70 (workshop site) failed — non-fatal; the stack is still up."
 fi
 
+# Full observability stack (Prometheus + Grafana + Loki + Tempo). OPT-IN, default OFF —
+# it adds real load. Set DEPLOY_MONITORING=true in .env to enable.
+if [[ "${DEPLOY_MONITORING:-false}" == "true" ]]; then
+  "$HERE/80-monitoring.sh" || warn "phase 80 (monitoring) failed — non-fatal; the core stack is still up."
+fi
+
 log "Done. Stack is up:"
 log "  • Workshop site  : http://<host>:${WORKSHOP_PORT:-3000}/   (start here — interactive lessons + live shell)"
 log "  • MicroShift API : KUBECONFIG=$(kubeconfig_path) oc get nodes"

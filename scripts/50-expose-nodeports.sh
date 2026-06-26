@@ -24,8 +24,9 @@ NODE_CTR="${MINC_NODE_CONTAINER:-microshift}"
 BIND_ADDR="${NODEPORT_BIND_ADDR:-0.0.0.0}"
 # Space-separated NodePorts to publish. 30789 = OpenClaw UI, 30900 = console (optional
 # phase 60), 30808 = OpenShell gateway gRPC (so the workshop shell's `openshell` CLI has a
-# stable endpoint). A listener for an undeployed NodePort is harmless (no backend = refused).
-PORTS="${NODEPORT_FORWARDS:-30789 30900 30808}"
+# stable endpoint), 30030 = Grafana (optional phase 80). A listener for an undeployed
+# NodePort is harmless (no backend = refused).
+PORTS="${NODEPORT_FORWARDS:-30789 30900 30808 30030}"
 
 require_cmd "$ENGINE"
 # The MINC container may live in the rootless or the rootful store; pick whichever can

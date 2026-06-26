@@ -58,6 +58,7 @@ export const CURRICULUM: Part[] = [
     lessons: [
       { slug: "usecase", title: "The Cluster Copilot Challenge", blurb: "Turn Shifty into an OpenShift-native DevOps copilot.", minutes: 10 },
       { slug: "extend", title: "Extending Shifty", blurb: "Give the agent cluster powers: skills, tools, policies.", minutes: 12, hasLab: true },
+      { slug: "monitoring", title: "Observability (optional)", blurb: "Add Prometheus + Grafana + Loki + Tempo, and let the copilot read metrics.", minutes: 8, hasLab: true },
       { slug: "ideas", title: "Ideas & Scoring", blurb: "Starter ideas, stretch goals, and how submissions are judged.", minutes: 6 },
     ],
   },
