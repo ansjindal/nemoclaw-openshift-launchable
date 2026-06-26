@@ -23,8 +23,18 @@ oc create namespace "$NS" --dry-run=client -o yaml | oc apply -f -
 # OpenShell's Kubernetes compute driver watches the agent-sandbox CRD
 # (sandboxes.agents.x-k8s.io). Without it the gateway logs a 404 watch loop and can't
 # create sandboxes. Install the CRD + controller before the gateway starts.
-ASB_VERSION="${AGENT_SANDBOX_VERSION:-}"
-[[ -z "$ASB_VERSION" ]] && ASB_VERSION="$(curl -fsSL https://api.github.com/repos/kubernetes-sigs/agent-sandbox/releases/latest | jq -r .tag_name)"
+#
+# PIN v0.4.6 — DO NOT track "latest". The OpenShell gateway (0.0.70) speaks the
+# agent-sandbox v1alpha1 API: it annotates sandboxes with
+# `api.agents.x-k8s.io/v1alpha1-sandbox-state` and, in IssueSandboxToken, verifies a
+# sandbox pod is owned by a *v1alpha1* Sandbox. agent-sandbox v0.5.0+ switched the
+# storage version to v1beta1, so its controller stamps pod ownerReferences as
+# `agents.x-k8s.io/v1beta1`. The gateway then rejects every supervisor bootstrap with
+# `PERMISSION_DENIED: pod is not controlled by an OpenShell Sandbox`, the supervisor
+# crash-loops, and gateway-driven sandboxes never reach Ready. v0.4.6 is the last
+# release that is v1alpha1-only (v0.5.0 introduced v1beta1). Revisit when the gateway
+# adopts v1beta1.
+ASB_VERSION="${AGENT_SANDBOX_VERSION:-v0.4.6}"
 if ! oc get crd sandboxes.agents.x-k8s.io >/dev/null 2>&1; then
   log "Installing agent-sandbox CRD + controller (${ASB_VERSION})"
   oc apply -f "https://github.com/kubernetes-sigs/agent-sandbox/releases/download/${ASB_VERSION}/manifest.yaml"
