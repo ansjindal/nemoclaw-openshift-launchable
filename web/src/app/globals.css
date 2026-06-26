@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* ===== Red Hat × NVIDIA theme (dark shell, pastel diagram cards) ===== */
+:root {
+  --color-rh: #ee0000;
+  --color-rh-bright: #ff4d4d;
+  --color-nv: #76b900;
+  --color-nv-bright: #a3e635;
+  --color-nv-dim: #4d7a00;
+
+  --color-bg: #0a0c10;
+  --color-bg-2: #0e1118;
+  --color-panel: #121620;
+  --color-panel-2: #161b26;
+  --color-line: #222a37;
+  --color-line-2: #2c3545;
+
+  --color-fg: #eef2f7;
+  --color-fg-dim: #c2cad6;
+  --color-fg-mut: #8a93a3;
+
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-nv: var(--color-nv);
+  --font-mono: var(--font-mono);
+}
+
+html, body { background: var(--color-bg); color: var(--color-fg); }
+body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; line-height: 1.6; }
+::selection { background: rgba(118, 185, 0, 0.28); }
+* { box-sizing: border-box; }
+
+/* ---- prose (MDX content) ---- */
+.prose { color: var(--color-fg-dim); font-size: 1rem; line-height: 1.78; }
+.prose > * + * { margin-top: 18px; }
+.prose h1, .prose h2, .prose h3 { color: #fff; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.prose h2 { font-size: 1.5rem; margin-top: 44px; }
+.prose h3 { font-size: 1.18rem; margin-top: 30px; }
+.prose strong { color: var(--color-fg); font-weight: 650; }
+.prose a { color: var(--color-nv-bright); border-bottom: 1px solid rgba(163, 230, 53, 0.35); }
+.prose ul, .prose ol { padding-left: 1.3em; }
+.prose li + li { margin-top: 6px; }
+.prose code { font-family: var(--font-mono); font-size: 0.88em; background: #0c0f15; padding: 0.12em 0.42em; border-radius: 5px; color: var(--color-nv-bright); border: 1px solid var(--color-line); }
+.prose hr { border: none; border-top: 1px solid var(--color-line); margin: 32px 0; }
+.prose table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.prose th, .prose td { border: 1px solid var(--color-line); padding: 8px 12px; text-align: left; }
+.prose blockquote { border-left: 3px solid var(--color-nv); padding-left: 14px; color: var(--color-fg-mut); }
+
+/* ---- xterm tweaks ---- */
+.xterm { padding: 10px; }
+.xterm-viewport::-webkit-scrollbar { width: 8px; }
+.xterm-viewport::-webkit-scrollbar-thumb { background: var(--color-line-2); border-radius: 4px; }

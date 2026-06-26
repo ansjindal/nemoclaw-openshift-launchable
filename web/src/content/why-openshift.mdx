@@ -1,0 +1,18 @@
+OpenShift is **Red Hat's enterprise Kubernetes** — Kubernetes plus the things you need to run it in production: an integrated console, security defaults, build/deploy tooling, and the `oc` CLI. For an AI agent, that means real guardrails.
+
+## Why run an agent on OpenShift?
+- **Isolation by default** — namespaces, RBAC, and Security Context Constraints bound what a workload can do.
+- **Network policy** — you can fence the agent's egress.
+- **Resource limits** — CPU/memory caps keep a runaway agent from eating the box.
+- **A console** — a real UI to see pods, logs, and events while you build.
+
+## MicroShift: OpenShift that fits on one VM
+Full OpenShift expects multiple nodes. On a small VM we use **MicroShift**, Red Hat's single-node edge build — specifically the community **OKD** build, packaged to run *inside a container* via **MINC** (“MicroShift in Container”).
+
+<Callout type="rh" title="Same APIs, smaller footprint">
+MicroShift speaks the same OpenShift APIs and the same <code>oc</code> CLI as a full cluster. What you learn here transfers directly to production OpenShift.
+</Callout>
+
+<Callout type="note" title="Why podman, not Docker?">
+MicroShift runs its own runtime (CRI-O) <em>inside</em> the node container. Docker's read-only overlay breaks that nested layer store; podman's doesn't — so the scripts default to podman.
+</Callout>

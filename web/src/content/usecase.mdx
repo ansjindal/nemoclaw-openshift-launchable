@@ -1,0 +1,19 @@
+Your hackathon challenge: turn Shifty from a generic agent into a **Cluster Copilot** — an OpenShift-native assistant that understands your cluster, explains what's wrong, and (with your blessing) fixes it.
+
+<CopilotFlow />
+
+## The idea
+You already have an agent running *inside* a real OpenShift cluster. Give it the ability to talk to that cluster and it becomes a copilot:
+
+- **“Why is this pod crashing?”** — reads the pod, events, and logs; explains the root cause.
+- **“What's unhealthy right now?”** — sweeps namespaces and summarizes what's not Running.
+- **“Scale the frontend to 3 and roll it.”** — proposes the exact `oc` commands; you approve; it acts.
+
+## The rules
+- **Read freely, write carefully** — inspect anything; propose + confirm state-changing actions.
+- **Guardrails are real** — bounded by OpenShift RBAC and OpenShell policy. Lean on them.
+- **Demo-first** — a small copilot that does one thing well beats a grand design that doesn't run.
+
+<Callout type="rh" title="Why it's a great OpenShift demo">
+It shows agentic AI doing real platform work — triage, explain, remediate — on the same OpenShift APIs operators use every day. An AI teammate that speaks Kubernetes, safely.
+</Callout>

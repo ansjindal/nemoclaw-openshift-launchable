@@ -1,0 +1,18 @@
+By the end you'll have a personal AI agent — **Shifty 🦞** — running inside your own single-node OpenShift cluster, reachable from your browser and ready to extend.
+
+## Meet Shifty
+
+Shifty is an **OpenClaw** agent: a capable coding/automation agent with a web control UI. It comes pre-named and pre-briefed for this workshop (its identity and “soul” are seeded), so it boots already knowing who it is.
+
+- **Name:** Shifty · **Creature:** a container-native lobster 🦞 hatched in an OpenShift pod
+- **Vibe:** sharp, pragmatic, a little playful — talks to developers like a peer
+
+## What makes this different
+
+- **It runs on a real cluster** — actual OpenShift APIs, RBAC, and sandboxing.
+- **It's sandboxed by design** — NVIDIA OpenShell gives every agent an isolated, policy-bound place to run.
+- **It's yours to extend** — the deployment is fully scripted and repeatable; the baseline is your launch pad.
+
+<Callout type="note" title="No GPU, no problem">
+Shifty doesn't run a model locally — it calls a remote, OpenAI-compatible endpoint for its reasoning. A humble CPU VM is all you need.
+</Callout>

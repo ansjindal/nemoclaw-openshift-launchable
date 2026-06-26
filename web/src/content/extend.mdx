@@ -1,0 +1,28 @@
+There are a few ways to give Shifty cluster powers, from “five minutes” to “proper tool.” Pick the level that fits your hack — and try them in the shell.
+
+## Level 1 · Give it read-only `oc`
+The simplest copilot: let the agent run read-only `oc` and reason about the output. Create a read-only ServiceAccount + kubeconfig, mount it into the sandbox, and tell Shifty (in `SOUL.md`) it can run `oc` to inspect — and must show the command before any change.
+
+```bash
+# explore what a read-only copilot could see:
+oc -n openclaw get pods
+oc -n openclaw describe pod openclaw-sandbox | tail -25
+oc -n openclaw get events --sort-by=.lastTimestamp | tail -10
+```
+
+<Callout type="warn" title="Scope the token">
+Start read-only. A copilot that can <em>read</em> everything and <em>propose</em> changes is already impressive — and safe. Add write verbs deliberately.
+</Callout>
+
+## Level 2 · Add a skill / tool
+OpenClaw supports skills/tools — give the agent a typed capability like `cluster.health()` or `pod.explain(name, ns)` that wraps the API calls you care about.
+
+## Level 3 · Connect an MCP server
+Wire in a Kubernetes MCP server so Shifty gets structured cluster tools without writing glue.
+
+## Level 4 · Policy + sub-agent
+Define an OpenShell policy bounding exactly what the copilot may touch, and spin a focused sub-agent (e.g. an “incident responder”).
+
+<Callout type="tip" title="Let Shifty help build itself">
+Ask the agent to draft its own tool, write the read-only ServiceAccount YAML, or edit its <code>SOUL.md</code> to add an “always confirm writes” rule.
+</Callout>

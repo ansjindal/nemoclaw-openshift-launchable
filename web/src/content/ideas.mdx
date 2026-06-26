@@ -1,0 +1,23 @@
+Stuck on what to build? Here's a menu — pick one and make it real.
+
+## Starter ideas (a session)
+- **Pod Doctor** — “Why is X failing?” → reads events + logs, names the root cause, suggests a fix.
+- **Cluster Standup** — a one-paragraph health summary across namespaces, on demand.
+- **Guided Remediation** — proposes the exact `oc` command to fix an issue; acts only after you approve.
+- **Right-Sizer** — flags pods with no limits / over-asks and suggests requests & limits.
+
+## Stretch goals
+- An MCP-powered copilot with typed cluster tools.
+- A sub-agent “incident responder” that triages, then hands you a plan.
+- A Slack/Telegram surface so you can ask Shifty from your phone.
+- A custom OpenShell policy demonstrating least-privilege for the copilot.
+
+## How submissions are judged
+- **It works (40%)** — a live demo on your own cluster beats slides.
+- **Useful (25%)** — solves a real operator pain.
+- **Safe (20%)** — respects guardrails; writes are confirmed/scoped.
+- **Polish & story (15%)** — clear demo, clear “why.”
+
+<Callout type="tip" title="Demo tip">
+Pre-break something small (delete a config, set a bad image), then let Shifty diagnose and fix it live. A real recovery lands best.
+</Callout>

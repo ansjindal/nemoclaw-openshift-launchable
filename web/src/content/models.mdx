@@ -1,0 +1,48 @@
+Shifty has no local model — it calls out to an **OpenAI-compatible inference endpoint**. Let's look at its config, point it at a model, and reload.
+
+## Inspect the current config
+
+The agent reads `~/.openclaw/openclaw.json` (a writable copy seeded at boot). Peek at it:
+
+```bash
+oc -n openclaw exec openclaw-sandbox -c openclaw -- cat /home/node/.openclaw/openclaw.json
+```
+
+If you launched without inference creds, there's no provider yet — the agent is **unconfigured** and you add one here.
+
+## Add a provider/model
+
+Easiest: enter it in the **Control UI → Settings → Providers** (paste a base URL + API key + model id). Or set it from the shell by writing the config and reloading. The config shape:
+
+```bash
+# models.providers.<name>.{baseUrl,apiKey,api,models[].{id,name}}
+# agents.defaults.model.primary = "custom/<model-id>"
+```
+
+<Callout type="tip" title="NVIDIA-hosted models">
+Any OpenAI-compatible endpoint works — e.g. an NVIDIA NIM from build.nvidia.com. Use its base URL + your key + the served model id.
+</Callout>
+
+## Reload after a config change
+
+OpenClaw can reload config without a full restart:
+
+```bash
+openclaw config reload
+```
+
+Confirm the agent now reports your model:
+
+```bash
+oc -n openclaw logs openclaw-sandbox -c openclaw | grep -i "agent model" | tail -1
+```
+
+## Validate your config
+
+```bash
+openclaw config validate
+```
+
+<Callout type="note" title="Where the key lives">
+The key stays in the agent's own config (and, on a fresh deploy, an in-cluster Secret) — never in the repo. On a shared box, treat it as disposable.
+</Callout>

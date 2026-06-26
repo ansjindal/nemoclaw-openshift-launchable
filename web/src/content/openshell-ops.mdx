@@ -1,0 +1,49 @@
+Now poke around the running system from the shell — this is how you'll debug and operate during the hackathon.
+
+## The agent sandbox
+
+OpenShell reconciles a `Sandbox` custom resource into the agent pod. Look at it:
+
+```bash
+oc -n openclaw get sandbox,pod
+oc -n openclaw describe sandbox openclaw-sandbox | head -40
+```
+
+## Gateway logs & plugins
+
+```bash
+oc -n openclaw logs openclaw-sandbox -c openclaw | tail -30
+```
+
+You'll see the gateway listening on `:18789` and its loaded plugins (browser, canvas, device-pair, memory, …).
+
+## OpenShell gateway (the platform control plane)
+
+The OpenShell gateway (port 8080) is the sandbox control plane — distinct from OpenClaw's UI. Check it:
+
+```bash
+oc -n openshell get pods,svc,route
+oc -n openshell logs statefulset/openshell | grep -i "Listing sandboxes" | tail -1
+```
+
+That `Listing sandboxes from Kubernetes` line means the compute driver is healthy.
+
+## Cluster basics
+
+```bash
+oc get nodes
+oc get pods -A | grep -vE "Running|Completed" || echo ALL-RUNNING
+oc -n openclaw get events --sort-by=.lastTimestamp | tail -10
+```
+
+## OpenClaw CLI tour
+
+```bash
+openclaw --help
+openclaw config validate
+openclaw devices list
+```
+
+<Callout type="tip" title="Everything is `oc`-driven">
+The whole stack is standard Kubernetes objects. Anything you learn here — describe, logs, events, scale — is exactly what you'd do on production OpenShift.
+</Callout>

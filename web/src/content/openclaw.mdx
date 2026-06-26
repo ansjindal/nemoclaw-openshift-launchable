@@ -1,0 +1,18 @@
+**OpenClaw** is the agent itself. It's deployed as an agent-sandbox `Sandbox`, which OpenShell reconciles into a pod running the OpenClaw **gateway** — a web *control UI* on port `18789` where you chat with and steer the agent.
+
+## Inside the sandbox
+- **The agent runtime** — plans, calls tools, edits a workspace.
+- **The control UI / gateway** — your browser window into the agent.
+- **A config** — points the agent at a model (OpenAI-compatible) and holds the API key.
+- **A workspace volume** — the agent's files, memory, and identity.
+
+## How it thinks: the model
+OpenClaw ships no model. Its config declares a *provider* — base URL, API key, model id — using the OpenAI-compatible shape. We point it at a remote endpoint (e.g. an NVIDIA NIM). You'll configure this in **Part IV · Add a Model**.
+
+## Auth & pairing — what you'll do hands-on
+- **Password** — the gateway runs `--auth password`; you type one known password.
+- **Device pairing** — the first time a browser connects, the gateway asks a host operator to approve it (`openclaw devices list` / `approve`). You'll do this for real in **Part IV · Device Pairing**.
+
+<Callout type="note" title="Identity & soul">
+OpenClaw agents have an <code>IDENTITY.md</code> and <code>SOUL.md</code> in their workspace that shape behavior. We pre-seed these so your agent boots as “Shifty 🦞”. They're yours to edit.
+</Callout>

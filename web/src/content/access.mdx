@@ -1,0 +1,32 @@
+The stack is up. Two UIs to open — both are published as host ports and exposed via your Brev tunnels.
+
+## Open the OpenClaw UI
+
+Reach the agent at host port **`30789`** — open the `openclaw` tunnel from your instance page (or `http://localhost:30789/` over an SSH tunnel). Log in with the workshop password.
+
+First connection will ask for **device pairing** — that's the next lesson. For now, confirm the endpoint is serving from the shell:
+
+```bash
+curl -s -o /dev/null -w "openclaw :30789 -> %{http_code}\n" http://127.0.0.1:30789/
+```
+
+## Open the OpenShift console
+
+If phase 60 ran, the console is at host port **`30900`** under `/console/`:
+
+```bash
+curl -s -o /dev/null -w "console :30900 -> %{http_code}\n" http://127.0.0.1:30900/console/
+```
+
+<Callout type="note" title="Console shows ‘no resources’?">
+Expected — MicroShift lacks the OpenShift <code>project.openshift.io</code> API the console scopes to. Switch the **Project dropdown to “All Projects”**, or browse <code>/console/k8s/all-namespaces/pods</code>.
+</Callout>
+
+## Quick health check
+
+```bash
+oc -n openclaw get pod openclaw-sandbox -o wide
+oc get nodes
+```
+
+Next: pair your browser, then teach Shifty about a model.

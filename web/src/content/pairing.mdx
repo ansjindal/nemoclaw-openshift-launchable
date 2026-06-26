@@ -1,0 +1,46 @@
+When you first open the OpenClaw Control UI from your browser, it asks for **one-time device pairing** — a security feature: the gateway only trusts browsers a host operator has approved. Let's do it the real way, from the shell.
+
+<Callout type="note" title="Why this exists">
+OpenClaw gives every browser a device identity (a keypair). A remote browser must be approved once by someone with operator access on the **gateway host** — that's you, here in the lab shell.
+</Callout>
+
+## 1. See pending requests
+
+When your browser shows “Device pairing required”, list the requests. The `openclaw` helper runs the CLI **inside the agent pod** (the gateway host), where it has the local owner identity:
+
+```bash
+openclaw devices list
+```
+
+You'll see a **Pending** row with a `Request` id (a UUID) for your browser, plus any already-`Paired` devices.
+
+## 2. Approve your browser
+
+Copy the pending request id and approve it:
+
+```bash
+openclaw devices approve <REQUEST_ID>
+```
+
+<Callout type="tip" title="Approve the most recent">
+In a hurry? `openclaw devices approve --latest` selects the newest pending request. (On the gateway host you don't pass `--url`/`--password` — the CLI uses the gateway's local owner identity.)
+</Callout>
+
+## 3. Reconnect
+
+Back in the browser, reload — you're in. List devices again and your browser now shows under **Paired**:
+
+```bash
+openclaw devices list
+```
+
+## Managing devices
+
+```bash
+openclaw devices remove <DEVICE_ID>     # revoke a device
+openclaw devices clear                  # clear all paired devices
+```
+
+<Callout type="rh" title="The real-world posture">
+In production you'd keep pairing on and approve teammates deliberately. For a shared workshop box you could disable it (`gateway.controlUi.dangerouslyDisableDeviceAuth`), but learning the approve flow is the point here.
+</Callout>

@@ -1,0 +1,34 @@
+Time to stand up the whole stack. Everything runs on your Brev VM via one script. **Open the lab shell** on the right (▶) — it's a real shell on your instance, with `oc` and an `openclaw` helper ready.
+
+## Bring up the stack
+
+The launchable already cloned the repo and wrote your `.env`. Kick off the full provision:
+
+```bash
+cd ~/nemoclaw-openshift-launchable
+./scripts/setup.sh
+```
+
+<Callout type="warn" title="First run pulls images (~15–20 min)">
+It pulls the CoreOS image + the 3 GB OpenClaw image + the console. Grab a coffee — the shell streams progress, and you can watch pods settle in another command below.
+</Callout>
+
+## What each phase does
+
+- **00 preflight / 10 host-deps** — checks the box, installs podman + `oc`/`minc`.
+- **20 microshift** — brings up MicroShift via MINC, writes `kubeconfig`, adds storage.
+- **30 openshell** — installs the agent-sandbox CRD + the OpenShell gateway.
+- **45 openclaw** — deploys the OpenClaw sandbox (“Shifty”) + seeds its identity.
+- **50 nodeports** — publishes the host ports so the UIs are reachable.
+- **60 console** — the OpenShift web console.
+
+## Watch it come up
+
+In the shell, watch pods settle into `Running`:
+
+```bash
+export KUBECONFIG=$PWD/kubeconfig
+watch -n5 'oc get pods -A | grep -vE "Running|Completed" || echo ALL-RUNNING'
+```
+
+When `openclaw-sandbox` is `Running`, your agent is alive. Next: open it.

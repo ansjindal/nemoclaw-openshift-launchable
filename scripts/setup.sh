@@ -25,7 +25,13 @@ if [[ "${DEPLOY_CONSOLE:-true}" == "true" ]]; then
   "$HERE/60-console.sh" || warn "phase 60 (console) failed — non-fatal; the OpenClaw agent is still up."
 fi
 
+# Interactive workshop website (Next.js + live shell). Set DEPLOY_WORKSHOP=false to skip.
+if [[ "${DEPLOY_WORKSHOP:-true}" == "true" ]]; then
+  "$HERE/70-workshop.sh" || warn "phase 70 (workshop site) failed — non-fatal; the stack is still up."
+fi
+
 log "Done. Stack is up:"
+log "  • Workshop site  : http://<host>:${WORKSHOP_PORT:-3000}/   (start here — interactive lessons + live shell)"
 log "  • MicroShift API : KUBECONFIG=$(kubeconfig_path) oc get nodes"
 log "  • OpenShell gw   : oc -n ${OPENSHELL_NAMESPACE:-openshell} get route openshell-gateway"
 log "  • OpenClaw UI    : oc -n openclaw get route openclaw  (host NodePort: http://<host>:30789/)"
