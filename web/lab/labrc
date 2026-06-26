@@ -10,6 +10,18 @@ openclaw() {
   oc -n openclaw exec openclaw-sandbox -c openclaw -- node dist/index.js "$@"
 }
 
+# expose-agent <sandbox> [port=8000] [ns=openshell] — publish a sandbox's HTTP port at the
+# host's :30950 "demo" tunnel, so you can show your copilot's own endpoint via the Brev URL.
+# (One demo at a time — 30950 is the shared demo port on this instance.)
+expose-agent() {
+  local sb="${1:?usage: expose-agent <sandbox> [port=8000] [ns=openshell]}" port="${2:-8000}" ns="${3:-openshell}"
+  oc -n "$ns" expose pod "$sb" --name "demo-$sb" --type NodePort --port "$port" --target-port "$port" >/dev/null 2>&1 || true
+  oc -n "$ns" patch svc "demo-$sb" --type merge \
+    -p '{"spec":{"type":"NodePort","ports":[{"port":'"$port"',"targetPort":'"$port"',"nodePort":30950}]}}' >/dev/null 2>&1 \
+    && echo "✓ $ns/$sb:$port → open host port 30950 on your Brev instance to demo it" \
+    || echo "✗ could not expose $sb (is the pod running, and serving on :$port?)"
+}
+
 PS1='\[\e[1;32m\]oclaw-lab\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]$ '
 
 echo -e "\e[1;32m🦞 OpenClaw workshop lab shell\e[0m"

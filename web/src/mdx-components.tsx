@@ -8,6 +8,7 @@ import { OpenClawArch } from "@/components/diagrams/OpenClawArch";
 import { OpenShellArch } from "@/components/diagrams/OpenShellArch";
 import { OpenShellRuntime } from "@/components/diagrams/OpenShellRuntime";
 import { DeployTopology } from "@/components/diagrams/DeployTopology";
+import { OpenShellOnK8s } from "@/components/diagrams/OpenShellOnK8s";
 import { OpenShellConsole } from "@/components/diagrams/OpenShellConsole";
 import { SandboxFlow } from "@/components/diagrams/SandboxFlow";
 import { SecurityLayers } from "@/components/diagrams/SecurityLayers";
@@ -21,6 +22,7 @@ const components: MDXComponents = {
   OpenShellArch,
   OpenShellRuntime,
   DeployTopology,
+  OpenShellOnK8s,
   OpenShellConsole,
   SandboxFlow,
   SecurityLayers,

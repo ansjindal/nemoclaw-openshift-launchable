@@ -23,11 +23,29 @@ Two paths run through OpenShell: the **agent path** (how an agent comes alive an
 Safety as a system prompt is a suggestion; safety at the <em>network and process layer</em> is enforced. Even if the agent is prompt-injected, the guardrail only lets its binaries reach the hosts and paths you allowed.
 </Callout>
 
-## What it looks like deployed
+## On Kubernetes — the real deployment
 
-On this launchable, the whole thing nests inside one Brev VM. Click through what actually runs:
+The Helm chart deploys the gateway as a **StatefulSet**; the **agent-sandbox controller** turns `Sandbox` CRs into pods; each pod's **supervisor** dials back to the gateway over mTLS. Click any object — the detail shows how *this* launchable maps to it:
 
-<DeployTopology />
+<OpenShellOnK8s />
+
+### Five enforcement layers
+
+Every sandbox is bounded at five independent layers — some locked at creation, some hot-reloadable:
+
+| Layer | Protects against | Enforcement point | Change at runtime? |
+| --- | --- | --- | --- |
+| **Network** | egress / data exfiltration | CONNECT proxy + OPA policy (per-binary) | ✅ `openshell policy set` |
+| **Filesystem** | binary tampering, cred theft | Landlock LSM (kernel) | ❌ recreate sandbox |
+| **Process** | priv-esc, fork bombs, bad syscalls | seccomp-BPF + privilege drop | ❌ recreate sandbox |
+| **Inference** | credential exposure | privacy router intercepts `inference.local` | ✅ `openshell inference set` |
+| **Gateway** | unauth access, transport tampering | mTLS + token auth (cluster CA) | config |
+
+That's the defense-in-depth: even a fully prompt-injected agent is boxed in by the kernel and the proxy, not by a prompt.
+
+<Callout type="note" title="Where our instance simplifies">
+Single-node, CPU-only, NodePort instead of Envoy/LoadBalancer, remote inference instead of a local model, and unauthenticated CLI instead of OIDC. The <em>shape</em> is identical to the production diagram — fewer optional add-ons.
+</Callout>
 
 ## The foundation: agent-sandbox (the SIG project)
 

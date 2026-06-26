@@ -1,0 +1,36 @@
+Chatting with Shifty is great for *operating* — but to **demo** what you built (a Pod Doctor, a right-sizer, an incident bot), you want a surface that shows the **task**, not a chat log. The answer: have your copilot **serve its own endpoint**, and open it at a real URL.
+
+## The idea
+
+Your agent runs in a sandbox — a real pod with a real network. Anything it serves on a port can be published. So:
+
+1. Your copilot **serves an HTTP endpoint** — a status page, a `/diagnose` API, a tiny dashboard. (Ask the agent to write it: *"Write a small Node server on :8000 that lists unhealthy pods as JSON, and run it."*)
+2. You **expose that port** to a Brev URL.
+3. You **demo at the URL** — judges see your copilot *doing the thing*, live.
+
+## Expose it — one command
+
+The lab shell has an `expose-agent` helper. Point it at your sandbox + the port your app serves on:
+
+```bash
+expose-agent pod-doctor 8000
+```
+
+That publishes the sandbox's `:8000` at the host's **`30950`** "demo" tunnel. Open **port `30950`** from your Brev instance page — your copilot's endpoint, live in the browser.
+
+<Callout type="note" title="How it works">
+<code>expose-agent</code> creates a NodePort Service selecting your sandbox pod and pins it to <code>30950</code> (already published by the host forwarder). Under the hood it's a normal OpenShift Service — the same way Shifty's UI reaches you on <code>30789</code>. One demo at a time per instance.
+</Callout>
+
+## Two surfaces to choose from
+
+- **Your agent's own chat UI.** Spin your *own* OpenClaw agent (a gateway sandbox), expose its control port, and demo by chatting with *your* customized copilot — separate from the shared Shifty.
+- **A custom task endpoint.** The richer demo: your copilot builds and serves the exact artifact your use-case needs — a live "cluster health" page, a remediation form, a metrics view (pair it with the [observability](/learn/monitoring) Prometheus endpoint).
+
+<Callout type="rh" title="Why this lands">
+A judge clicking your URL and watching your agent diagnose a real failing pod — on a real OpenShift cluster, behind a real policy guardrail — beats any slide. Build the endpoint, <code>expose-agent</code>, demo.
+</Callout>
+
+<Callout type="tip" title="Production note">
+On a full cluster you'd use OpenShell's native service exposure (<code>ExposeService</code> → a per-sandbox loopback URL like <code>&lt;sandbox&gt;--&lt;service&gt;.apps.example.com</code>) or an OpenShift Route with its own hostname. The <code>30950</code> NodePort is the single-node shortcut for this launchable.
+</Callout>
