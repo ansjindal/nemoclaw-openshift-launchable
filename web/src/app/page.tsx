@@ -23,7 +23,7 @@ export default function Home() {
       <div className="mt-14 grid gap-4 sm:grid-cols-2">
         {CURRICULUM.map((p) => (
           <div key={p.id} className="rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-5">
-            <div className={`text-sm font-bold ${p.accent === "rh" ? "text-[var(--color-rh-bright)]" : p.accent === "nv" ? "text-[var(--color-nv-bright)]" : "text-white"}`}>{p.title}</div>
+            <div className={`text-sm font-bold ${p.accent === "rh" ? "text-[var(--color-rh-bright)]" : p.accent === "nv" ? "text-[var(--color-nv-bright)]" : "text-[var(--color-fg)]"}`}>{p.title}</div>
             <div className="mt-1 text-sm text-[var(--color-fg-dim)]">{p.subtitle}</div>
           </div>
         ))}

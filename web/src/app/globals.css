@@ -19,6 +19,11 @@
   --color-fg-dim: #c2cad6;
   --color-fg-mut: #8a93a3;
 
+  /* code blocks + terminal */
+  --color-code-bg: #0b0e13;
+  --color-code-fg: #d6e0ec;
+  --color-term-bg: #0a0c10;
+
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -36,6 +41,9 @@
   --color-fg-mut: #6b7280;
   --color-nv-bright: #4d7a00;   /* darker green for legible text on light */
   --color-rh-bright: #cc0000;
+  --color-code-bg: #eef1f6;
+  --color-code-fg: #1f2937;
+  --color-term-bg: #f3f5f9;
 }
 html { transition: background-color 0.15s ease; }
 
@@ -53,14 +61,14 @@ body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; line-
 /* ---- prose (MDX content) ---- */
 .prose { color: var(--color-fg-dim); font-size: 1rem; line-height: 1.78; }
 .prose > * + * { margin-top: 18px; }
-.prose h1, .prose h2, .prose h3 { color: #fff; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.prose h1, .prose h2, .prose h3 { color: var(--color-fg); font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
 .prose h2 { font-size: 1.5rem; margin-top: 44px; }
 .prose h3 { font-size: 1.18rem; margin-top: 30px; }
 .prose strong { color: var(--color-fg); font-weight: 650; }
 .prose a { color: var(--color-nv-bright); border-bottom: 1px solid rgba(163, 230, 53, 0.35); }
 .prose ul, .prose ol { padding-left: 1.3em; }
 .prose li + li { margin-top: 6px; }
-.prose code { font-family: var(--font-mono); font-size: 0.88em; background: #0c0f15; padding: 0.12em 0.42em; border-radius: 5px; color: var(--color-nv-bright); border: 1px solid var(--color-line); }
+.prose code { font-family: var(--font-mono); font-size: 0.88em; background: var(--color-code-bg); padding: 0.12em 0.42em; border-radius: 5px; color: var(--color-nv-bright); border: 1px solid var(--color-line); }
 .prose hr { border: none; border-top: 1px solid var(--color-line); margin: 32px 0; }
 .prose table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .prose th, .prose td { border: 1px solid var(--color-line); padding: 8px 12px; text-align: left; }

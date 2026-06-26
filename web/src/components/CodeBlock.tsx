@@ -19,7 +19,7 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
     code.split("\n").length <= 6;
 
   return (
-    <div className="group relative my-5 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[#0b0e13]">
+    <div className="group relative my-5 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-code-bg)]">
       <div className="flex items-center justify-between border-b border-[var(--color-line)] px-3 py-1.5">
         <span className="font-mono text-[11px] text-[var(--color-fg-mut)]">shell</span>
         <div className="flex gap-2">
@@ -34,13 +34,13 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
           )}
           <button
             onClick={() => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1400); }}
-            className="rounded border border-[var(--color-line-2)] px-2 py-0.5 text-[11px] text-[var(--color-fg-mut)] hover:text-white"
+            className="rounded border border-[var(--color-line-2)] px-2 py-0.5 text-[11px] text-[var(--color-fg-mut)] hover:text-[var(--color-fg)]"
           >
             {copied ? "Copied ✓" : "Copy"}
           </button>
         </div>
       </div>
-      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-[#d6e0ec]">{children}</pre>
+      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-[var(--color-code-fg)]">{children}</pre>
     </div>
   );
 }

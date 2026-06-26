@@ -53,7 +53,7 @@ export function LabSplit({ children }: { children: ReactNode; slug?: string }) {
       <div className="mt-4 w-full shrink-0 lg:mt-0 lg:w-auto lg:basis-[var(--shell-w)]">
         <div className="lg:sticky lg:top-16">
           <Terminal title="lab shell — oc + openclaw" fill />
-          <button onClick={() => setShow(false)} className="mt-2 text-xs text-[var(--color-fg-mut)] hover:text-white">hide shell</button>
+          <button onClick={() => setShow(false)} className="mt-2 text-xs text-[var(--color-fg-mut)] hover:text-[var(--color-fg)]">hide shell</button>
         </div>
       </div>
     </div>

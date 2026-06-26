@@ -14,6 +14,7 @@ export function ThemeToggle() {
     setTheme(t);
     document.documentElement.dataset.theme = t;
     try { localStorage.setItem("oclaw-theme", t); } catch {}
+    window.dispatchEvent(new CustomEvent("oclaw:theme", { detail: t }));
   };
   return (
     <button onClick={toggle} title="Toggle light / dark" aria-label="Toggle theme"

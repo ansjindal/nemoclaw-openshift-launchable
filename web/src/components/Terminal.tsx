@@ -4,6 +4,14 @@ import { registerShellSender } from "@/lib/labBus";
 
 type Status = "idle" | "connecting" | "live" | "closed" | "error";
 
+// xterm palette that follows the site's light/dark theme.
+function xtermTheme() {
+  const light = typeof document !== "undefined" && document.documentElement.dataset.theme === "light";
+  return light
+    ? { background: "#f3f5f9", foreground: "#1f2937", cursor: "#4d7a00", green: "#4d7a00", brightGreen: "#76b900", selectionBackground: "#cde2a3" }
+    : { background: "#0a0c10", foreground: "#d6e0ec", cursor: "#a3e635", green: "#76b900", brightGreen: "#a3e635", selectionBackground: "#243018" };
+}
+
 export function Terminal({ title = "lab shell", fill = false }: { title?: string; fill?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>("idle");
@@ -24,6 +32,7 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
     let fit: import("@xterm/addon-fit").FitAddon | undefined;
     let ws: WebSocket | undefined;
     let ro: ResizeObserver | undefined;
+    let onTheme: (() => void) | undefined;
     let disposed = false;
     setStatus("connecting");
 
@@ -49,12 +58,15 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
           fontSize: 13,
           cursorBlink: true,
           scrollback: 5000,
-          theme: { background: "#0a0c10", foreground: "#d6e0ec", cursor: "#a3e635", green: "#76b900", brightGreen: "#a3e635", selectionBackground: "#243018" },
+          theme: xtermTheme(),
         });
         fit = new FitAddon();
         term.loadAddon(fit);
         term.open(hostRef.current!);
         fit.fit();
+        // follow light/dark toggles live
+        onTheme = () => { try { if (term) term.options.theme = xtermTheme(); } catch {} };
+        window.addEventListener("oclaw:theme", onTheme);
         term.write("\x1b[90mconnecting to " + url + " …\x1b[0m\r\n");
 
         ws = new WebSocket(url);
@@ -82,6 +94,7 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
       disposed = true;
       clearTimeout(watchdog);
       registerShellSender(null);
+      if (onTheme) window.removeEventListener("oclaw:theme", onTheme);
       try { ro?.disconnect(); } catch {}
       try { ws?.close(); } catch {}
       try { term?.dispose(); } catch {}
@@ -91,7 +104,7 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
   const dot = status === "live" ? "#76b900" : status === "error" || status === "closed" ? "#ee0000" : "#8a93a3";
 
   return (
-    <div className={`flex flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[#0a0c10] ${h}`}>
+    <div className={`flex flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-term-bg)] ${h}`}>
       <div className="flex items-center gap-2 border-b border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 text-xs text-[var(--color-fg-mut)]">
         <span style={{ width: 9, height: 9, borderRadius: 9, background: dot, display: "inline-block" }} />
         <span className="font-mono">{title}</span>

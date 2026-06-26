@@ -33,7 +33,7 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
     <article>
       <div className="mb-6 border-b border-[var(--color-line)] pb-6">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-[var(--color-nv-bright)]">{current.partTitle}</div>
-        <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">{current.title}</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--color-fg)] md:text-4xl">{current.title}</h1>
         <div className="mt-3 flex items-center gap-4 text-xs text-[var(--color-fg-mut)]">
           <span className="flex items-center gap-1"><Clock size={13} /> {current.minutes} min</span>
           {current.hasLab && <span className="flex items-center gap-1 text-[var(--color-nv)]"><FlaskConical size={13} /> hands-on lab</span>}
@@ -50,13 +50,13 @@ export default async function LessonPage({ params }: { params: Promise<{ slug: s
         {prev ? (
           <Link href={`/learn/${prev.slug}`} className="group flex flex-1 flex-col rounded-lg border border-[var(--color-line)] p-4 transition hover:border-[var(--color-nv-dim)]">
             <span className="flex items-center gap-1 text-xs text-[var(--color-fg-mut)]"><ArrowLeft size={12} /> Previous</span>
-            <span className="mt-1 text-sm font-medium text-[var(--color-fg-dim)] group-hover:text-white">{prev.title}</span>
+            <span className="mt-1 text-sm font-medium text-[var(--color-fg-dim)] group-hover:text-[var(--color-fg)]">{prev.title}</span>
           </Link>
         ) : <div className="flex-1" />}
         {next ? (
           <Link href={`/learn/${next.slug}`} className="group flex flex-1 flex-col items-end rounded-lg border border-[var(--color-line)] p-4 text-right transition hover:border-[var(--color-nv-dim)]">
             <span className="flex items-center gap-1 text-xs text-[var(--color-fg-mut)]">Next <ArrowRight size={12} /></span>
-            <span className="mt-1 text-sm font-medium text-[var(--color-fg-dim)] group-hover:text-white">{next.title}</span>
+            <span className="mt-1 text-sm font-medium text-[var(--color-fg-dim)] group-hover:text-[var(--color-fg)]">{next.title}</span>
           </Link>
         ) : <div className="flex-1" />}
       </nav>
