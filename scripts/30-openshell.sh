@@ -54,7 +54,11 @@ helm upgrade --install openshell "$CHART" "${VERSION_ARG[@]}" \
   -f "$REPO_ROOT/helm/openshell-values.yaml" \
   --wait --timeout 10m
 
-# The gateway is a StatefulSet (default SQLite backend), so wait on the rollout/pod.
+# The gateway renders most settings (incl. auth) into a ConfigMap (gateway.toml), so a
+# values change on a re-run won't restart the pod by itself. Force a restart so config
+# changes actually take effect, then wait for the new pod.
+log "Restarting the gateway to pick up config (gateway.toml) changes"
+oc -n "$NS" rollout restart statefulset/openshell 2>/dev/null || true
 log "Waiting for the gateway StatefulSet to become ready"
 oc -n "$NS" rollout status statefulset/openshell --timeout=300s || oc -n "$NS" get pods
 
