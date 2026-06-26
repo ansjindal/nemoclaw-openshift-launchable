@@ -4,6 +4,15 @@
 # via the agent-sandbox CRD). These overrides let OpenShift's SCC assign UID/fsGroup from the
 # namespace range instead of the chart's hardcoded 1000 — the supported OpenShift posture.
 
+# Expose the gateway on a stable, host-reachable NodePort. The in-instance workshop
+# shell's `openshell` CLI reconnects on every command, so it needs a fixed endpoint —
+# `kubectl port-forward` isn't one. Phase 50's socat forwarder publishes 30808 on the
+# host, and phase 70 registers the CLI against http://127.0.0.1:30808.
+service:
+  type: NodePort
+  port: 8080
+  nodePort: 30808
+
 server:
   # TLS terminated at the edge (Route); gateway listens plaintext in-cluster.
   disableTls: true

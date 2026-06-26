@@ -32,6 +32,23 @@ cd "$WEB_DIR"
 npm ci >/dev/null 2>&1 || npm install
 npm run build
 
+# --- OpenShell CLI for the in-browser shell ---
+# The "Create a sandbox" lesson drives the gateway with `openshell sandbox create`. Install
+# the CLI system-wide and register the in-cluster gateway against the stable host NodePort
+# (published by phase 50), so the commands work from the lab shell. The http:// endpoint is
+# a plaintext local registration — no mTLS certs needed (gateway runs disableTls).
+if ! command -v openshell >/dev/null 2>&1; then
+  log "Installing the openshell CLI"
+  curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh | sh >/dev/null 2>&1 \
+    || warn "openshell CLI install failed — the gateway-driven sandbox lesson won't work in the shell."
+fi
+if command -v openshell >/dev/null 2>&1; then
+  GW_URL="${OPENSHELL_CLI_ENDPOINT:-http://127.0.0.1:30808}"
+  log "Registering OpenShell gateway for the workshop shell at ${GW_URL}"
+  openshell gateway add "$GW_URL" --local --name cluster >/dev/null 2>&1 || true
+  openshell gateway select cluster >/dev/null 2>&1 || true
+fi
+
 # --- run it as a systemd service so it survives logout/reboot ---
 log "Installing systemd unit openclaw-workshop.service (PORT ${PORT})"
 RUN_USER="$(id -un)"

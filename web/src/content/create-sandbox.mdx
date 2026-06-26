@@ -1,59 +1,59 @@
-You've seen Shifty's sandbox and configured it. Now create a **brand-new sandbox from scratch** and watch the whole lifecycle — the same machinery the platform uses for every agent.
+You've met Shifty and configured it. Now create a **brand-new sandbox through the OpenShell gateway** — and watch the whole lifecycle. This is the real machinery: one command, and the gateway orchestrates a fully-isolated agent sandbox onto the cluster.
 
 ## The flow
 
 <SandboxFlow />
 
-In this lab we'll use the **direct CR path** (apply a `Sandbox` with `oc`). In a richer, multi-tenant setup a client would instead call the **OpenShell gateway** (gRPC :8080), which writes the same CR for you — but the reconcile → schedule → run steps are identical.
+This is **the power of OpenShell**: you don't hand-write Kubernetes YAML. You ask the **gateway** (gRPC :8080) for a sandbox, and it mints a scoped identity (a sandbox JWT), writes the `Sandbox` custom resource, the **agent-sandbox controller** reconciles it into a pod, and an **init-container side-loads the OpenShell supervisor** that wires up the sandbox's isolated network + policy. You get a ready, governed sandbox — not just a bare pod.
 
-## 1. Declare a Sandbox
+## 1. Create a sandbox via the gateway
 
-A `Sandbox` (`agents.x-k8s.io/v1beta1`) needs only a `podTemplate`. We reuse the OpenClaw image (already on the node) with a simple sleep command so there's no pull:
-
-```bash
-cat <<'EOF' | oc apply -f -
-apiVersion: agents.x-k8s.io/v1beta1
-kind: Sandbox
-metadata:
-  name: hello-sandbox
-  namespace: openclaw
-spec:
-  shutdownPolicy: Delete
-  podTemplate:
-    spec:
-      containers:
-        - name: shell
-          image: ghcr.io/openclaw/openclaw:2026.6.10
-          imagePullPolicy: IfNotPresent
-          command: ["sh", "-c", "echo ready; sleep 3600"]
-EOF
-```
-
-## 2. Watch it reconcile
-
-The **agent-sandbox controller** turns your CR into a pod. List sandboxes and watch the pod appear:
+The `openshell` CLI is already pointed at the in-cluster gateway. Create one:
 
 ```bash
-oc get sandboxes -A
-oc -n openclaw get pod hello-sandbox -w
+openshell sandbox create --name scout -- sh -c 'echo ready; sleep 3600'
 ```
 
-(Once it's `Running`, press Ctrl-C to stop watching.)
+The gateway streams the lifecycle back: `Sandbox allocated` → it pulls the OpenShell **supervisor** image → the sandbox runtime starts. (The multi-GB sandbox image is pre-pulled by the launchable, so this is quick.)
+
+## 2. Watch it become Ready
+
+```bash
+openshell sandbox list
+```
+
+You'll see `scout` move to **`Ready`**. Under the hood that's a real Kubernetes object — inspect what the gateway wrote for you:
+
+```bash
+oc -n openshell get sandbox scout -o jsonpath='{.metadata.labels}{"\n"}'
+```
+
+Notice the `openshell.ai/managed-by: openshell` label — that's how the gateway recognizes *its* sandboxes. And the pod the controller built:
+
+```bash
+oc -n openshell get pod scout -o jsonpath='{range .spec.initContainers[*]}init: {.name}{"\n"}{end}{range .spec.containers[*]}main: {.name}{"\n"}{end}'
+```
+
+The `openshell-supervisor-install` init-container is the side-load step from the diagram; the `agent` container is your workload, wrapped by the supervisor.
 
 ## 3. Run something inside it
 
-It's a real, isolated sandbox — exec in:
+It's a real, isolated sandbox. The reliable way to get a shell in is `oc exec` (the supervisor's own SSH relay is still settling on MicroShift — see the note):
 
 ```bash
-oc -n openclaw exec hello-sandbox -- sh -c 'echo "hello from a brand-new sandbox"; hostname'
+oc -n openshell exec scout -c agent -- sh -c 'echo "hello from a gateway-built sandbox"; hostname; id'
 ```
 
-## 4. Customize it — give the sandbox an identity
+<Callout type="note" title="oc exec vs openshell sandbox exec">
+<code>openshell sandbox exec</code> is the native interactive path (it relays an SSH session through the gateway). On this single-node MicroShift it's intermittent, so for the workshop we use <code>oc exec</code>, which is rock-solid. Both land you in the same container.
+</Callout>
 
-A sandbox is yours to shape. You control its filesystem — write files into it:
+## 4. Give your sandbox an identity
+
+A sandbox is yours to shape. Inject configuration at creation with `--env`, or write files into its workspace. For an **OpenClaw** agent, an `IDENTITY.md` in the workspace *is* its persona — the same files you met in *Meet Shifty*:
 
 ```bash
-oc -n openclaw exec hello-sandbox -- sh -c 'mkdir -p /workspace && cat > /workspace/IDENTITY.md <<MD
+oc -n openshell exec scout -c agent -- sh -c 'mkdir -p /workspace && cat > /workspace/IDENTITY.md <<MD
 Name: Scout
 Creature: a curious recon bot 🔭
 Vibe: terse, precise, read-only
@@ -61,31 +61,32 @@ MD
 cat /workspace/IDENTITY.md'
 ```
 
-For a real **OpenClaw** agent, a file exactly like this in its workspace becomes its persona (the same `IDENTITY.md`/`SOUL.md` you met in *Meet Shifty*). So to spin a **custom agent**, you'd declare a Sandbox that (a) uses the OpenClaw image and (b) seeds its own `IDENTITY.md`/`SOUL.md` + config — the pattern the launchable uses for Shifty (`manifests/openclaw/workspace-seed/` + an initContainer):
+To spin a **fully custom agent**, point `--from` at the OpenClaw image and seed its `IDENTITY.md`/`SOUL.md` + config — the exact pattern the launchable uses for Shifty (`manifests/openclaw/workspace-seed/` + an initContainer):
 
 ```bash
-# sketch: a customized agent = OpenClaw image + your own seeded identity/config
-#   spec.podTemplate.spec.initContainers: copy your IDENTITY.md/SOUL.md into the workspace
-#   spec.podTemplate.spec.containers[0]: ghcr.io/openclaw/openclaw + gateway args
+# a customized agent = OpenClaw sandbox image + your own seeded identity/policy
+openshell sandbox create --name recon \
+  --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest \
+  --env AGENT_PERSONA=recon -- sh -c 'sleep 3600'
 ```
 
 <Callout type="tip" title="Your hackathon agents">
-Each teammate can spin their <em>own</em> named agent with its own identity and policy — they're all just <code>Sandbox</code> CRs. Give one a recon personality, another a remediation one.
+Each teammate can <code>openshell sandbox create</code> their <em>own</em> named agent with its own identity and policy — all governed by the same gateway. Give one a recon personality, another a remediation one.
 </Callout>
 
 ## 5. Tear it down
 
-Because we set `shutdownPolicy: Delete`, removing the CR removes the pod:
-
 ```bash
-oc -n openclaw delete sandbox hello-sandbox
-oc get sandboxes -A
+openshell sandbox delete scout
+openshell sandbox list
 ```
 
+The gateway deletes the `Sandbox` CR, the controller removes the pod, and OpenShift reclaims everything.
+
 <Callout type="rh" title="This is the whole model">
-Declare desired state (a CR) → a controller reconciles it into a pod → OpenShift enforces RBAC/SCC/NetworkPolicy → you use it → delete to clean up. Every agent, including Shifty, is just a <code>Sandbox</code> on this same path.
+Ask the gateway for a sandbox → it mints an identity + writes a <code>Sandbox</code> CR → a controller reconciles it into a pod → the supervisor isolates it → OpenShift enforces RBAC/SCC/NetworkPolicy → you use it → delete to clean up. Every agent, including Shifty, rides this same path.
 </Callout>
 
 <Callout type="tip" title="Hackathon angle">
-Your Cluster Copilot could <em>create sandboxes on demand</em> — spin a scratch sandbox to run a risky command, then delete it. The CR + controller pattern makes that a few lines of YAML.
+Your Cluster Copilot could <em>create sandboxes on demand</em> through the gateway — spin a scratch sandbox to run a risky command in isolation, then delete it. That's a few lines against the OpenShell API.
 </Callout>

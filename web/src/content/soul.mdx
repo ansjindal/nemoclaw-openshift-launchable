@@ -1,22 +1,91 @@
-Shifty isn't configured by a settings panel — it's shaped by **Markdown files in its workspace**. These files *are* the agent's memory and personality. Each session it "wakes up," reads them, and acts accordingly. Let's read them in the shell.
+Shifty isn't configured by a settings panel — it's shaped by **Markdown files in its workspace**. These files *are* the agent's memory and personality. Each session it "wakes up," reads them, and acts accordingly. No system-prompt black box — just text you can read and edit.
 
-## The workspace
+Let's look at the actual files the launchable seeds into Shifty's workspace.
+
+## `IDENTITY.md` — *who* the agent is
+
+The shortest file, and the most fun. Name, creature, vibe, emoji — the agent's sense of self:
+
+```md
+_Your identity. Pre-set for the WeAreDevelopers 2026 × Red Hat workshop — it's yours to evolve._
+
+Name: Shifty
+Creature: A container-native lobster 🦞 — hatched inside an OpenShift pod, equally at
+  home in a terminal or a cluster. Scuttles through namespaces, pinches bugs.
+Vibe: Sharp, pragmatic, a little playful. Helps first, explains second. Has opinions,
+  skips the filler. Talks to developers like a peer, not a help desk.
+Emoji: 🦞
+Avatar: (set a workspace-relative path, an http(s) URL, or a data URI)
+```
+
+That `Vibe:` line is doing real work — it's why Shifty answers like a peer instead of a help desk.
+
+## `SOUL.md` — *how* it behaves
+
+The closest thing to an editable system prompt. Values, boundaries, and tone. Here are its core sections (the full file is ~35 lines):
+
+```md
+## Core Truths
+
+**Be genuinely helpful, not performatively helpful.** Skip "Great question!" — just help.
+
+**Have opinions.** Disagree, prefer things, find stuff amusing. An assistant with no
+personality is a search engine with extra steps.
+
+**Be resourceful before asking.** Read the file. Check the context. Try it. *Then* ask.
+
+**You run on a real cluster.** You live in an OpenShift pod. When something is
+cluster-shaped, lean in — that's home turf.
+
+## Boundaries
+
+- Be careful with external actions (emails, posts, anything public) — confirm first.
+- Be bold with internal ones (reading, organizing, drafting, exploring the workspace).
+- Private things stay private.
+
+## Continuity
+
+Each session you wake up fresh — these files *are* your memory. Read them, update them.
+```
+
+Notice the **Boundaries** section: "confirm before external actions, be bold with internal ones." That single paragraph is your safety policy expressed in plain English — and you can rewrite it.
+
+## `BOOTSTRAP.md` — the first-run kickoff
+
+A fresh OpenClaw agent normally runs a "who am I?" interview on first boot. We replaced it with a workshop kickoff so Shifty wakes up ready instead of asking you 20 questions:
+
+```md
+# BOOTSTRAP.md — Workshop kickoff
+
+_You already know who you are — your IDENTITY.md and SOUL.md are set. No interview needed._
+
+## First message
+> "Hey — Shifty here 🦞, your agent on this OpenShift cluster. What are we building?"
+
+1. Find out what they want to make in this session.
+2. Get oriented: skim AGENTS.md, TOOLS.md, and SOUL.md.
+3. Help them take the first concrete step. Bias toward a working slice over a grand plan.
+
+## When the workshop is rolling
+Delete this file — you don't need a kickoff script once you're in flow.
+```
+
+## The rest of the workspace
+
+| File | Purpose |
+| --- | --- |
+| `AGENTS.md` | House rules / capabilities the agent follows |
+| `TOOLS.md` | What tools are available to it |
+| `USER.md` | Facts about you it should remember |
+| `HEARTBEAT.md` | The periodic self-check-in |
+
+## Read them live
+
+The files above are seeded into every Shifty. Read the real ones in your cluster:
 
 ```bash
 oc -n openclaw exec openclaw-sandbox -c openclaw -- ls -la /home/node/.openclaw/workspace
 ```
-
-You'll see a handful of `.md` files (and a `.git` — the agent version-controls its own memory).
-
-## The files, and what each does
-
-- **`IDENTITY.md`** — *who* the agent is: name, creature, vibe, emoji. We seeded Shifty's.
-- **`SOUL.md`** — *how* it behaves: its values and boundaries (be helpful, have opinions, confirm risky actions). The closest thing to a system prompt you can edit.
-- **`BOOTSTRAP.md`** — the first-run kickoff (a “who am I?” interview). We replaced it with a workshop welcome so Shifty boots ready.
-- **`AGENTS.md`** — house rules / capabilities the agent follows.
-- **`TOOLS.md`**, **`USER.md`**, **`HEARTBEAT.md`** — tools available, facts about you, and the periodic check-in.
-
-Read Shifty's identity and soul:
 
 ```bash
 oc -n openclaw exec openclaw-sandbox -c openclaw -- cat /home/node/.openclaw/workspace/IDENTITY.md
@@ -26,18 +95,20 @@ oc -n openclaw exec openclaw-sandbox -c openclaw -- cat /home/node/.openclaw/wor
 oc -n openclaw exec openclaw-sandbox -c openclaw -- cat /home/node/.openclaw/workspace/SOUL.md
 ```
 
+There's also a `.git` in there — the agent **version-controls its own memory**.
+
 <Callout type="note" title="Seeded, not hard-coded">
-These were placed by the launchable's <code>workspace-seed</code> (an initContainer copies them in, create-if-missing). On a fresh agent they appear automatically; your edits persist.
+These were placed by the launchable's <code>workspace-seed</code> (an initContainer copies them in, create-if-missing). On a fresh agent they appear automatically; your edits persist across sessions.
 </Callout>
 
 ## Make it yours
 
-The best way to edit them is to *ask the agent* — open the OpenClaw UI and say:
+The best way to edit them is to *ask the agent*. Open the OpenClaw UI and say:
 
-> “Open your SOUL.md and add a rule: always show me the `oc` command before running it.”
+> "Open your SOUL.md and add a rule: always show me the `oc` command before running it."
 
 Shifty edits its own brain — that's the workspace-as-memory model. Or edit the seed files in the repo (`manifests/openclaw/workspace-seed/`) and redeploy for a new default.
 
 <Callout type="tip" title="Why this matters for the hackathon">
-Your Cluster Copilot's behavior lives in <code>SOUL.md</code>/<code>AGENTS.md</code>. Want it to always confirm writes, or to prefer read-only <code>oc</code>? Write it there.
+Your Cluster Copilot's behavior lives in <code>SOUL.md</code>/<code>AGENTS.md</code>. Want it to always confirm writes, or prefer read-only <code>oc</code>? Write it there — in English.
 </Callout>

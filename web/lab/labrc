@@ -1,6 +1,7 @@
 # OpenClaw workshop lab shell — sourced by the in-browser terminal (server.mjs).
 export KUBECONFIG="${KUBECONFIG:-$LAB_CWD/kubeconfig}"
-export PATH="$PATH:/usr/local/bin"
+# /usr/local/bin (oc) + /usr/bin (openshell CLI, installed by phase 70).
+export PATH="$PATH:/usr/local/bin:/usr/bin"
 
 # `openclaw ...` runs the OpenClaw CLI INSIDE the agent pod (the gateway host),
 # where it uses the gateway's local owner identity — so `openclaw devices list`
@@ -13,5 +14,6 @@ PS1='\[\e[1;32m\]oclaw-lab\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]$ '
 
 echo -e "\e[1;32m🦞 OpenClaw workshop lab shell\e[0m"
 echo -e "  \e[2mcluster:\e[0m  oc get pods -A"
-echo -e "  \e[2magent:\e[0m    openclaw devices list   (runs inside the agent pod)"
+echo -e "  \e[2magent:\e[0m    openclaw devices list        (runs inside the agent pod)"
+echo -e "  \e[2mgateway:\e[0m  openshell sandbox list       (create sandboxes via the OpenShell gateway)"
 echo
