@@ -1,0 +1,46 @@
+# Cluster Copilot preset — least-privilege egress for an agent that inspects the
+# cluster it lives in. OpenShell is deny-by-default: a sandbox can ONLY reach the
+# endpoints listed here, only via the listed binaries, and (with enforcement) only
+# the listed methods/paths. This grant is READ-ONLY: GET to the Kubernetes API and
+# the Prometheus query API — enough to diagnose, not enough to mutate.
+#
+# Apply it to a NEW gateway sandbox at creation:
+#   openshell sandbox create --name pod-doctor \
+#     --policy policies/presets/cluster-copilot.yaml \
+#     --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest -- sh -c 'sleep infinity'
+#
+# The agent still needs an RBAC token (a read-only ServiceAccount) to authenticate;
+# this policy only opens the *network path* through the privacy proxy.
+network_policies:
+  # --- in-cluster Kubernetes API (read-only) ---
+  - name: kube-api
+    endpoints:
+      - host: kubernetes.default.svc.cluster.local
+        port: 443
+        protocol: rest
+        enforcement: enforce          # L7 inspect: only the GET paths below are allowed
+    binaries:
+      - /usr/bin/oc
+      - /usr/bin/kubectl
+      - /usr/bin/node
+    rules:
+      - method: GET
+        path: /api/**                 # core API (pods, events, nodes, ...)
+      - method: GET
+        path: /apis/**                # named API groups (apps, route.openshift.io, ...)
+      # NOTE: no POST/PUT/PATCH/DELETE — the copilot can read & propose, not change.
+
+  # --- in-cluster Prometheus (query API only) ---
+  # Host matches the kube-prometheus-stack service from the optional monitoring phase.
+  - name: prometheus
+    endpoints:
+      - host: kube-prometheus-stack-prometheus.monitoring.svc.cluster.local
+        port: 9090
+        protocol: rest
+        enforcement: enforce
+    binaries:
+      - /usr/bin/oc
+      - /usr/bin/node
+    rules:
+      - method: GET
+        path: /api/v1/**              # /query, /query_range, /label/*/values, ...

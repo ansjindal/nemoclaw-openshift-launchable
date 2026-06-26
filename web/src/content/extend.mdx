@@ -1,28 +1,86 @@
-There are a few ways to give Shifty cluster powers, from “five minutes” to “proper tool.” Pick the level that fits your hack — and try them in the shell.
+Let's build **one** copilot together, end to end — a read-only **Pod Doctor** that can inspect the cluster and explain failures. Follow along in the shell; then the last section hands it to you to take further.
 
-## Level 1 · Give it read-only `oc`
-The simplest copilot: let the agent run read-only `oc` and reason about the output. Create a read-only ServiceAccount + kubeconfig, mount it into the sandbox, and tell Shifty (in `SOUL.md`) it can run `oc` to inspect — and must show the command before any change.
+## Worked example · Pod Doctor (read-only)
+
+### Step 1 — a read-only identity
+
+A copilot should *read and propose*, not mutate. Give it a ServiceAccount with the built-in `view` role:
 
 ```bash
-# explore what a read-only copilot could see:
-oc -n openclaw get pods
-oc -n openclaw describe pod openclaw-sandbox | tail -25
-oc -n openclaw get events --sort-by=.lastTimestamp | tail -10
+oc create sa pod-doctor -n openclaw
+oc adm policy add-cluster-role-to-user view -z pod-doctor -n openclaw
 ```
 
-<Callout type="warn" title="Scope the token">
-Start read-only. A copilot that can <em>read</em> everything and <em>propose</em> changes is already impressive — and safe. Add write verbs deliberately.
-</Callout>
+Mint a short-lived token you can hand the agent:
 
-## Level 2 · Add a skill / tool
-OpenClaw supports skills/tools — give the agent a typed capability like `cluster.health()` or `pod.explain(name, ns)` that wraps the API calls you care about.
+```bash
+oc create token pod-doctor -n openclaw --duration=1h
+```
 
-## Level 3 · Connect an MCP server
-Wire in a Kubernetes MCP server so Shifty gets structured cluster tools without writing glue.
+### Step 2 — open the network path with an OpenShell policy
 
-## Level 4 · Policy + sub-agent
-Define an OpenShell policy bounding exactly what the copilot may touch, and spin a focused sub-agent (e.g. an “incident responder”).
+A gateway-created sandbox is **deny-by-default**: even with a token, it can't reach the API server until policy allows that egress. This is the OpenShell privacy proxy. The launchable ships a least-privilege preset — read-only K8s API + Prometheus:
+
+```bash
+cat policies/presets/cluster-copilot.yaml
+```
+
+```yaml
+network_policies:
+  - name: kube-api
+    endpoints:
+      - host: kubernetes.default.svc.cluster.local
+        port: 443
+        enforcement: enforce      # L7 inspect — only the paths below
+    binaries: [/usr/bin/oc, /usr/bin/kubectl, /usr/bin/node]
+    rules:
+      - { method: GET, path: /api/** }    # read-only: GET only
+      - { method: GET, path: /apis/** }   # no POST/PUT/DELETE → can't mutate
+```
+
+The key idea: **the policy is the guardrail**. `GET`-only paths mean that even if the agent *tries* to delete something, the proxy refuses the call. Safety isn't a prompt — it's enforced at the network.
+
+### Step 3 — create the Pod Doctor sandbox with that policy
+
+```bash
+openshell sandbox create --name pod-doctor \
+  --policy policies/presets/cluster-copilot.yaml \
+  --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest \
+  -- sh -c 'sleep infinity'
+openshell sandbox list
+```
+
+### Step 4 — tell it who it is, and ask it something real
+
+Seed a one-line brief (its `SOUL.md`), then put it to work:
+
+```bash
+oc -n openshell exec pod-doctor -c agent -- sh -c 'cat > /workspace/SOUL.md <<MD
+You are Pod Doctor. You have read-only oc access. Diagnose failing workloads:
+read events + logs, name the root cause, propose the exact fix command — never run writes.
+MD
+echo seeded'
+```
+
+Now break something and let it diagnose (in the OpenClaw UI, or by prompting the agent):
+
+> "A pod in `openclaw` is unhealthy. Read its events and logs and tell me the root cause + the `oc` command you'd run to fix it."
+
+That's a working copilot: scoped identity, enforced policy, real diagnosis.
+
+## Now you continue
+
+You've got the pattern — extend it. Pick one:
+
+- **Remediation (with confirm):** add `PATCH`/`DELETE` to the policy for *one* resource kind, and make the agent confirm before any write.
+- **Metrics-aware:** deploy the monitoring stack (optional phase) and let the copilot hit Prometheus (`/api/v1/query`) — the `prometheus` block in the same preset already allows it. "Which pods are over their memory request?"
+- **Typed tools / MCP:** wrap the calls in an OpenClaw skill or a Kubernetes MCP server so the agent gets structured tools instead of raw `oc`.
+- **Sub-agent:** spin a focused "incident responder" sandbox with its own tighter policy.
 
 <Callout type="tip" title="Let Shifty help build itself">
-Ask the agent to draft its own tool, write the read-only ServiceAccount YAML, or edit its <code>SOUL.md</code> to add an “always confirm writes” rule.
+Ask the agent to draft the next policy block, write the ServiceAccount YAML, or edit its own <code>SOUL.md</code> to add an "always confirm writes" rule. The workspace-as-memory model means it can extend itself.
+</Callout>
+
+<Callout type="rh" title="Why this is the OpenShift story">
+Least-privilege RBAC (the <code>view</code> role), enforced egress (the OpenShell policy), and a sandbox boundary (SCC + NetworkPolicy) — your copilot is powerful <em>and</em> contained. That layering is the whole pitch.
 </Callout>
