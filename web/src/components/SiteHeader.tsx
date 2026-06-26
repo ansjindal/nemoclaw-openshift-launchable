@@ -6,7 +6,7 @@ export function SiteHeader() {
       <Link href="/" className="flex items-center gap-2 font-bold tracking-tight">
         <span>🦞</span>
         <span className="hidden sm:inline">
-          <span className="text-[var(--color-nv-bright)]">OpenClaw</span>
+          <span className="text-[var(--color-fg-dim)]">OpenClaw</span>
           <span className="text-[var(--color-fg-mut)]"> · </span>
           <span className="text-[var(--color-nv-bright)]">OpenShell</span>
           <span className="text-[var(--color-fg-mut)]"> on </span>
