@@ -85,3 +85,34 @@ if oc -n "$NS" logs openshell-0 --tail=20 2>/dev/null | grep -q "Listing sandbox
 else
   warn "Gateway up but compute-driver watch not confirmed — check 'oc -n $NS logs openshell-0'."
 fi
+
+# Pre-pull the sandbox runtime image onto the node. It's multi-GB, so the FIRST
+# `openshell sandbox create` would otherwise block for minutes while the workspace-init
+# + agent containers pull it — a terrible first impression in a live workshop. A
+# fire-and-forget Job makes the kubelet pull it now (kubelet pulls the image before
+# running the container, so the pull happens even though the container just exits).
+# We don't wait on it: provisioning continues while the layers download in the
+# background, and by the time an attendee creates a sandbox it's cached locally.
+SANDBOX_IMG="$(awk -F': *' '/^[[:space:]]*sandboxImage:/{print $2; exit}' "$REPO_ROOT/helm/openshell-values.yaml" | tr -d '"')"
+if [[ -n "$SANDBOX_IMG" ]]; then
+  log "Pre-pulling sandbox image onto the node (background, one-time): $SANDBOX_IMG"
+  oc -n "$NS" apply -f - >/dev/null <<YAML || warn "Could not create sandbox-image pre-pull Job (first sandbox will pull on demand)."
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sandbox-image-prepull
+  namespace: ${NS}
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 600
+  template:
+    spec:
+      serviceAccountName: openshell-sandbox
+      restartPolicy: Never
+      containers:
+      - name: prepull
+        image: ${SANDBOX_IMG}
+        imagePullPolicy: IfNotPresent
+        command: ["sh", "-c", "exit 0"]
+YAML
+fi
