@@ -54,9 +54,14 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
         if (disposed) return;
 
         term = new XTerm({
-          fontFamily: "var(--font-mono), monospace",
+          fontFamily: "var(--font-mono), 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace",
           fontSize: 13,
+          fontWeight: 400,
+          fontWeightBold: 600,
+          lineHeight: 1.35,
+          letterSpacing: 0.2,
           cursorBlink: true,
+          cursorStyle: "bar",
           scrollback: 5000,
           theme: xtermTheme(),
         });
@@ -102,22 +107,31 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
   }, [started]);
 
   const dot = status === "live" ? "#76b900" : status === "error" || status === "closed" ? "#ee0000" : "#8a93a3";
+  const statusLabel = status === "live" ? "connected" : status;
 
   return (
-    <div className={`flex flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-term-bg)] ${h}`}>
-      <div className="flex items-center gap-2 border-b border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 text-xs text-[var(--color-fg-mut)]">
-        <span style={{ width: 9, height: 9, borderRadius: 9, background: dot, display: "inline-block" }} />
-        <span className="font-mono">{title}</span>
-        <span className="ml-auto">{status}</span>
+    <div className={`flex flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-term-bg)] shadow-[0_8px_30px_rgba(0,0,0,0.18)] ${h}`}>
+      {/* window chrome */}
+      <div className="flex items-center gap-3 border-b border-[var(--color-line)] bg-[var(--color-panel)] px-3.5 py-2.5">
+        <span className="flex items-center gap-[7px]">
+          <span style={{ width: 11, height: 11, borderRadius: 11, background: "#ff5f56", display: "inline-block" }} />
+          <span style={{ width: 11, height: 11, borderRadius: 11, background: "#ffbd2e", display: "inline-block" }} />
+          <span style={{ width: 11, height: 11, borderRadius: 11, background: "#27c93f", display: "inline-block" }} />
+        </span>
+        <span className="font-mono text-[11px] tracking-wide text-[var(--color-fg-dim)]">{title}</span>
+        <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-[var(--color-line-2)] px-2 py-[3px] text-[10px] font-medium uppercase tracking-wide text-[var(--color-fg-mut)]">
+          <span className={status === "live" ? "animate-pulse" : ""} style={{ width: 7, height: 7, borderRadius: 7, background: dot, display: "inline-block" }} />
+          {statusLabel}
+        </span>
       </div>
       {!started ? (
-        <button onClick={() => setStarted(true)} className="m-auto rounded-lg border border-[var(--color-nv-dim)] px-5 py-2.5 text-sm font-semibold text-[var(--color-nv-bright)] hover:bg-[var(--color-panel)]">
+        <button onClick={() => setStarted(true)} className="m-auto rounded-lg border border-[var(--color-nv-dim)] px-5 py-2.5 text-sm font-semibold text-[var(--color-nv-bright)] transition hover:bg-[var(--color-panel)] hover:shadow-[0_0_0_3px_var(--color-nv-dim)]">
           ▶ Open lab shell
         </button>
       ) : (
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1 px-3 pb-2 pt-2.5">
           <div ref={hostRef} className="h-full w-full" />
-          {err && <div className="px-3 py-2 text-xs text-red-400">{err}</div>}
+          {err && <div className="px-1 py-2 text-xs text-red-400">{err}</div>}
         </div>
       )}
     </div>
