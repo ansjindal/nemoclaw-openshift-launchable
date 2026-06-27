@@ -1,6 +1,4 @@
-Want to watch your **agent fleet** — CPU, memory, restarts, traffic — as you spin up more sandboxes? Add a full observability stack. This is for *you*, the operator: dashboards over the cluster and its agents.
-
-This phase is **opt-in** (it adds real load): enable it and re-run, or run the phase directly.
+Your instance ships a full observability stack **already running** — part of the pre-built platform, like the cluster and the gateway. It's for *you*, the operator: dashboards over the cluster and your agent fleet, no setup required.
 
 ## What you get
 
@@ -13,24 +11,18 @@ All in a `monitoring` namespace:
 
 `kube-prometheus-stack` brings Prometheus, Alertmanager, Grafana, node-exporter and kube-state-metrics; **Loki** and **Tempo** are auto-wired into Grafana as datasources. A custom **Agent Fleet** dashboard tracks your sandbox pods' CPU, memory, and restarts.
 
-## Turn it on
+## Open it
 
-```bash
-# in the repo on the instance
-echo 'DEPLOY_MONITORING=true' >> .env
-./scripts/80-monitoring.sh
-```
-
-The phase grants the OpenShift SCCs node-exporter needs, installs the three Helm releases, and exposes Grafana on **NodePort 30030** (already published to the host by the port-forwarder). Open it:
+The stack is up in the `monitoring` namespace — confirm the pods are running:
 
 ```bash
 oc -n monitoring get pods
 ```
 
-Then browse the host's port **30030** (expose it as a Brev tunnel) and log in as `admin` / `openclaw`. Look for the **OpenShell Agent Fleet** dashboard plus the built-in Kubernetes dashboards.
+Grafana is exposed on **NodePort 30030**, already published to the host by the port-forwarder. Open the host's port **30030** as a Brev tunnel and log in as `admin` / `openclaw`. Look for the **OpenShell Agent Fleet** dashboard plus the built-in Kubernetes dashboards.
 
-<Callout type="warn" title="It's not free">
-Prometheus + Loki + Tempo add CPU and memory pressure on a single 4-vCPU node. Leave it off for the core workshop; turn it on when you want the fleet dashboards.
+<Callout type="note" title="Pre-deployed (and how to skip it)">
+This stack provisions with the platform. On a very small instance you can opt out by setting <code>DEPLOY_MONITORING=false</code> in <code>.env</code> before provisioning — Prometheus + Loki + Tempo do add CPU/memory pressure on a single small node.
 </Callout>
 
 ## Watch the fleet

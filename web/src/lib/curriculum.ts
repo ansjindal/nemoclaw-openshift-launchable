@@ -71,10 +71,10 @@ export const CURRICULUM: Part[] = [
   {
     id: "reference",
     title: "Part VII · Reference",
-    subtitle: "A live fleet view, optional add-ons, and when something goes sideways",
+    subtitle: "A live fleet view, the observability stack, and when something goes sideways",
     lessons: [
-      { slug: "live", title: "Live OpenShell", blurb: "Your gateway + sandboxes, read live from the cluster and rendered in this page.", minutes: 4 },
-      { slug: "monitoring", title: "Observability (optional)", blurb: "Add Prometheus + Grafana + Loki + Tempo to watch the fleet.", minutes: 8, hasLab: true },
+      { slug: "live", title: "Live OpenShell", blurb: "Your gateway, sandboxes, logs & policy — read live from the cluster, in this page.", minutes: 4 },
+      { slug: "monitoring", title: "Observability", blurb: "Grafana + Prometheus + Loki + Tempo — pre-deployed; open the fleet dashboards.", minutes: 8, hasLab: true },
       { slug: "troubleshooting", title: "Troubleshooting & FAQ", blurb: "The gotchas we hit so you don't have to.", minutes: 8, hasLab: true },
       { slug: "resources", title: "Resources & Links", blurb: "Docs, repos, and where to go deeper.", minutes: 4 },
     ],

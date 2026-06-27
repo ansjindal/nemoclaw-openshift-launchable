@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Activity } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function SiteHeader() {
@@ -16,6 +17,10 @@ export function SiteHeader() {
         <span className="sm:hidden">OpenClaw on OpenShift</span>
       </Link>
       <div className="ml-auto flex items-center gap-2 text-[0.72rem] text-[var(--color-fg-mut)]">
+        <Link href="/learn/live" title="Live OpenShell — gateway, sandboxes, policies, logs"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-line-2)] px-2.5 py-1 transition hover:border-[var(--color-nv-dim)] hover:text-[var(--color-nv-bright)]">
+          <Activity size={13} /> <span className="hidden sm:inline">Live</span>
+        </Link>
         <span className="rounded-full border border-[rgba(238,0,0,0.35)] px-2.5 py-1 text-[var(--color-rh-bright)]">Red Hat</span>
         <span className="rounded-full border border-[rgba(118,185,0,0.35)] px-2.5 py-1 text-[var(--color-nv-bright)]">NVIDIA</span>
         <span className="hidden rounded-full border border-[var(--color-line-2)] px-2.5 py-1 md:inline">WeAreDevelopers 2026</span>

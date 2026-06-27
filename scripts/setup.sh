@@ -35,9 +35,10 @@ if [[ "${DEPLOY_WORKSHOP:-true}" == "true" ]]; then
   "$HERE/70-workshop.sh" || warn "phase 70 (workshop site) failed — non-fatal; the stack is still up."
 fi
 
-# Full observability stack (Prometheus + Grafana + Loki + Tempo). OPT-IN, default OFF —
-# it adds real load. Set DEPLOY_MONITORING=true in .env to enable.
-if [[ "${DEPLOY_MONITORING:-false}" == "true" ]]; then
+# Full observability stack (Prometheus + Grafana + Loki + Tempo) — PRE-DEPLOYED as part
+# of the platform so the fleet dashboards are ready out of the box. Set
+# DEPLOY_MONITORING=false in .env to skip it on a very small instance.
+if [[ "${DEPLOY_MONITORING:-true}" != "false" ]]; then
   "$HERE/80-monitoring.sh" || warn "phase 80 (monitoring) failed — non-fatal; the core stack is still up."
 fi
 
