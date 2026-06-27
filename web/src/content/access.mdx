@@ -23,13 +23,13 @@ The OpenShell <em>gateway</em> is a normal Service, so a NodePort fronts it. A <
 
 ## Open it in your browser
 
-On your Brev instance page, open the tunnel for port **`18789`**. You'll get the OpenClaw Control UI; log in with the gateway password (`openclaw` unless you changed `OPENCLAW_GATEWAY_PASSWORD`).
+<ServiceLink service="openclaw">Open the OpenClaw UI</ServiceLink> — log in with the gateway password (`openclaw` unless you changed `OPENCLAW_GATEWAY_PASSWORD`).
 
-If Brev doesn't list `18789`, add it as a tunnel on the instance page and refresh — it's a plain host port now.
+The first time, you'll be asked for your **Brev instance ID** (the suffix in your instance's Shareable URLs, e.g. `openclaw-`**`agcuo13nx`**`.brevlab.com`) — paste it once and it's remembered, and the **Links** menu (top-right) lights up for every service.
 
 ## Also: the OpenShift console (optional)
 
-If the console phase ran, open the Brev tunnel for port **`30900`** at **`/console/`**.
+<ServiceLink service="openshift">Open the OpenShift console</ServiceLink> (if the console phase ran).
 
 <Callout type="note" title="Console shows ‘no resources’?">
 Expected — MicroShift lacks the OpenShift <code>project.openshift.io</code> API the console scopes to. Switch the <strong>Project dropdown to “All Projects”</strong>, or browse <code>/console/k8s/all-namespaces/pods</code>.

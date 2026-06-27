@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Phase 80 (OPT-IN, default OFF) — full observability stack on MicroShift:
-# kube-prometheus-stack (Prometheus + Alertmanager + Grafana + node-exporter +
-# kube-state-metrics) + Loki (logs) + Tempo (traces), with an Agent Fleet dashboard.
-# Enable with DEPLOY_MONITORING=true in .env. It adds real load (Prometheus + 3 stacks),
-# so it's off by default and meant for attendees who want the metrics-aware copilot branch.
+# Phase 80 — full observability stack on MicroShift: kube-prometheus-stack (Prometheus +
+# Alertmanager + Grafana + node-exporter + kube-state-metrics) + Loki (logs) + Tempo
+# (traces), with a pre-loaded Agent Fleet dashboard. PRE-DEPLOYED with the platform; the
+# gating lives in setup.sh (DEPLOY_MONITORING=false to skip on a tiny instance). Running
+# this script directly always deploys.
 #
 # Grafana is published on NodePort 30030 (forwarded to the host by phase 50). Login:
 # admin / ${MONITORING_GRAFANA_PASSWORD:-openclaw}.
@@ -12,11 +12,6 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$HERE/lib/common.sh"
 load_env
-
-if [[ "${DEPLOY_MONITORING:-false}" != "true" ]]; then
-  log "DEPLOY_MONITORING not 'true' — skipping the observability stack (opt-in)."
-  exit 0
-fi
 
 export KUBECONFIG="$(kubeconfig_path)"
 require_cmd oc; require_cmd helm

@@ -46,6 +46,12 @@ alertmanager:
 grafana:
   enabled: true
   defaultDashboardsEnabled: true
+  # Land on the pre-loaded Agent Fleet dashboard when Grafana opens (the sidecar writes
+  # labelled dashboard ConfigMaps to /tmp/dashboards/). Reached directly via the Brev
+  # grafana link → NodePort 30030, so no sub-path.
+  grafana.ini:
+    dashboards:
+      default_home_dashboard_path: /tmp/dashboards/agent-fleet.json
   service:
     type: NodePort
     nodePort: 30030

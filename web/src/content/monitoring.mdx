@@ -19,7 +19,7 @@ The stack is up in the `monitoring` namespace — confirm the pods are running:
 oc -n monitoring get pods
 ```
 
-Grafana is exposed on **NodePort 30030**, already published to the host by the port-forwarder. Open the host's port **30030** as a Brev tunnel and log in as `admin` / `openclaw`. Look for the **OpenShell Agent Fleet** dashboard plus the built-in Kubernetes dashboards.
+<ServiceLink service="grafana">Open Grafana</ServiceLink> and log in as `admin` / `openclaw`. You'll land on the pre-loaded **OpenShell Agent Fleet** dashboard (CPU / memory / restarts per sandbox); the built-in Kubernetes dashboards are there too. (Grafana is on host NodePort `30030`; the **Links** menu top-right has it as well.)
 
 <Callout type="note" title="Pre-deployed (and how to skip it)">
 This stack provisions with the platform. On a very small instance you can opt out by setting <code>DEPLOY_MONITORING=false</code> in <code>.env</code> before provisioning — Prometheus + Loki + Tempo do add CPU/memory pressure on a single small node.
