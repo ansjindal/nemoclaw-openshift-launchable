@@ -50,13 +50,60 @@ For sandboxes created through the OpenShell gateway, every section maps to a rea
 
 ### See it on your cluster
 
-The repo ships the OpenShell policy your agent uses (deny-by-default: inference + the OpenClaw hosts). Read the real file:
+The repo ships the OpenShell policy your agent will use. Print the real file:
 
 ```bash
-sed -n '1,60p' ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml
+cat ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml
 ```
 
-You'll see this exact policy **enforced live** in the very next lesson (on a throwaway sandbox) and again when you build your own agent in Part IV — with `openshell policy get <name>`. The gateway turns this file into kernel-level (Landlock/seccomp) and proxy-level (OPA egress) rules.
+It's short — here's the whole thing, and every line is a guardrail:
+
+```yaml
+version: 1
+
+filesystem_policy:                       # what the agent may touch on disk
+  include_workdir: true
+  read_only:  [/usr, /lib, /proc, /dev/urandom, /app, /etc, /var/log]
+  read_write: [/sandbox, /tmp, /dev/null]
+
+landlock:
+  compatibility: best_effort             # enforce the FS rules via the kernel (Landlock LSM)
+
+process:
+  run_as_user: sandbox                   # the agent runs unprivileged, never root
+  run_as_group: sandbox
+
+network_policies:                        # a MAP of named egress rules — deny-by-default
+  inference:                             # rule #1 — the model endpoint
+    name: inference
+    endpoints:
+      - { host: <your-inference-host>, port: 443 }
+    binaries:
+      - { path: /usr/bin/node }          # ONLY node may use this rule
+  openclaw:                              # rule #2 — OpenClaw's own hosts
+    name: openclaw
+    endpoints:
+      - { host: api.openclaw.ai, port: 443 }
+      - { host: clawhub.nvidia.com, port: 443 }
+      - { host: registry.npmjs.org, port: 443 }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/bin/npm }
+```
+
+Now read it block by block:
+
+- **`version`** — the policy schema version. Just `1`.
+- **`filesystem_policy`** — the agent's view of the disk. `read_only` covers the system dirs (so it can't tamper with binaries or configs); `read_write` is **only** its home (`/sandbox`), `/tmp`, and `/dev/null`. Anything not listed — `/workspace`, the host filesystem — simply isn't there for the agent.
+- **`landlock`** — those filesystem rules aren't advisory. They're enforced by **Landlock**, a Linux-kernel security module, so even a compromised agent can't step outside them.
+- **`process`** — the agent runs as the unprivileged `sandbox` user, never root (backed by seccomp-BPF + privilege drop).
+- **`network_policies`** — the heart of it: a **map** of named rules, deny-by-default. Each rule pairs **endpoints** (the host + port the agent may reach) with **binaries** (which executables may use that egress). Two rules here:
+  - **`inference`** — only the `node` binary may open `:443` to your model endpoint. That's how the agent thinks — and the *only* host it can reach to do so.
+  - **`openclaw`** — `node` + `npm` may reach OpenClaw's API + the package registries (so the agent can fetch skills/packages), and nothing else.
+
+Read any rule as one sentence: *"`/usr/bin/node` may open `:443` to `api.openclaw.ai` — `curl` may not, and nobody may reach anywhere else."* That **per-binary, per-host** egress is what stops a prompt-injected agent from exfiltrating data through an unexpected channel — a deny-all firewall with two tiny doors, each labelled with who may walk through it.
+
+You'll see this exact policy **enforced live** in the next lesson (on a throwaway sandbox) and again when you build your agent in Part IV — `openshell policy get <name>` prints the *effective* policy. The gateway compiles this file into kernel-level (Landlock/seccomp) and proxy-level (OPA egress) rules.
 
 <Callout type="tip" title="The iterate loop">
 For a gateway-created sandbox, start in <strong>audit</strong> mode (violations logged, not blocked), watch <code>openshell logs &lt;name&gt;</code> for denials, add the endpoints you actually need to <code>network_policies</code>, then flip to <strong>enforce</strong>. Tighten without downtime — network rules hot-reload.
@@ -66,4 +113,4 @@ For a gateway-created sandbox, start in <strong>audit</strong> mode (violations 
 The agent-sandbox <strong>controller</strong> (installed with OpenShell in phase 30) turns the <code>Sandbox</code> CR into a real pod, under the namespace's RBAC + Security Context Constraints. OpenShell is the broader control plane / supervisor for sandboxes.
 </Callout>
 
-Next: go *into* the sandbox and run the agent's own CLI.
+Next: spin up a throwaway sandbox and drive every part of this — status, logs, policy, inference, forward — hands-on.
