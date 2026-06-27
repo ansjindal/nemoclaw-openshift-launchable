@@ -55,9 +55,11 @@ The bottom layer is community Kubernetes, not NVIDIA-specific: the `Sandbox` CRD
 We pin agent-sandbox to <strong>v0.4.6</strong> (the last <code>v1alpha1</code>-only release). The gateway 0.0.70 verifies a sandbox pod is owned by a <code>v1alpha1</code> Sandbox; agent-sandbox v0.5.0 switched to <code>v1beta1</code> ownerReferences, which the gateway rejects — so gateway-driven sandboxes would crash-loop. Pinning v0.4.6 is what makes <code>openshell sandbox create</code> reach <code>Ready</code> on MicroShift.
 </Callout>
 
-## Managing the fleet: the OpenShell Console
+## Managing the fleet: a web console
 
-OpenShell ships a web console (`openshell-ui`) — sign in with OIDC, and it talks to the gateway over gRPC to give role-aware admin/user views of the fleet: sandboxes, per-sandbox **policy**, a live **network** egress feed (ALLOW/DENY), a policy-advisor inbox, and interactive terminals. Here's the shape of it:
+The gateway is gRPC, so anything that speaks it can drive the fleet. Beyond the `openshell` CLI, there's a **companion open-source web console** (`openshell-ui`) — a separate project, not part of core OpenShell — that signs in with OIDC and talks to the gateway over gRPC to give role-aware admin/user views: sandboxes, per-sandbox **policy**, a live **network** egress feed (ALLOW/DENY), a policy-advisor inbox, and interactive terminals.
+
+It's **shown right here in the workshop** (the panel below is a faithful in-page preview — no extra component is deployed); point the real console at any OpenShell gateway when you want the full thing.
 
 <OpenShellConsole />
 

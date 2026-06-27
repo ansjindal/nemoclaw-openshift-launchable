@@ -1,34 +1,45 @@
-Time to stand up the whole stack. Everything runs on your Brev VM via one script. **Open the lab shell** on the right (▶) — it's a real shell on your instance, with `oc` and an `openclaw` helper ready.
+Good news: **your launchable already did this.** When your Brev instance started, it ran the full provision for you (the `setup.sh` pipeline) — MicroShift, the OpenShell gateway, the OpenClaw agent, and the UIs are already coming up (or up). So you don't run anything heavy here; you just **confirm it's healthy**. **Open the lab shell** on the right (▶) — a real shell on your instance with `oc` ready.
 
-## Bring up the stack
-
-The launchable already cloned the repo and wrote your `.env`. Kick off the full provision:
+## Confirm the cluster is up
 
 ```bash
-cd ~/nemoclaw-openshift-launchable
-./scripts/setup.sh
+oc get nodes
 ```
 
-<Callout type="warn" title="First run pulls images (~15–20 min)">
-It pulls the CoreOS image + the 3 GB OpenClaw image + the console. Grab a coffee — the shell streams progress, and you can watch pods settle in another command below.
-</Callout>
-
-## What each phase does
-
-- **00 preflight / 10 host-deps** — checks the box, installs podman + `oc`/`minc`.
-- **20 microshift** — brings up MicroShift via MINC, writes `kubeconfig`, adds storage.
-- **30 openshell** — installs the agent-sandbox CRD + the OpenShell gateway.
-- **45 openclaw** — deploys the OpenClaw sandbox (“Shifty”) + seeds its identity.
-- **50 nodeports** — publishes the host ports so the UIs are reachable.
-- **60 console** — the OpenShift web console.
-
-## Watch it come up
-
-In the shell, watch pods settle into `Running`:
+One `Ready` node = MicroShift is live. Now the workloads:
 
 ```bash
-export KUBECONFIG=$PWD/kubeconfig
+oc get pods -A | grep -vE "Running|Completed" || echo "✅ everything is Running"
+```
+
+If that prints `✅ everything is Running`, the whole stack is healthy. If a few are still pulling images on a fresh box, give it a minute:
+
+```bash
+# only if some pods aren't up yet — watch them settle, Ctrl-C when done
 watch -n5 'oc get pods -A | grep -vE "Running|Completed" || echo ALL-RUNNING'
 ```
 
-When `openclaw-sandbox` is `Running`, your agent is alive. Next: open it.
+## Check the key pieces
+
+```bash
+oc -n openshell get pods         # OpenShell gateway (openshell-0) + agent-sandbox
+oc -n openclaw  get pod openclaw-sandbox   # Shifty, your agent
+```
+
+When `openclaw-sandbox` is `Running`, your agent is alive.
+
+<Callout type="note" title="What the launchable already ran">
+The provision pipeline, for reference — you don't need to run it, it ran at startup:
+<br/>• <strong>00–10</strong> preflight + host deps (podman, <code>oc</code>, <code>minc</code>)
+<br/>• <strong>20</strong> MicroShift via MINC (+ storage, kubeconfig)
+<br/>• <strong>30</strong> agent-sandbox CRD + OpenShell gateway
+<br/>• <strong>45</strong> OpenClaw agent “Shifty” + seeded identity
+<br/>• <strong>50</strong> host NodePort forwarders (so the UIs are reachable)
+<br/>• <strong>60</strong> OpenShift console &nbsp;·&nbsp; <strong>70</strong> this workshop site
+</Callout>
+
+<Callout type="warn" title="Something not Running?">
+On a brand-new box the 3 GB OpenClaw image can still be pulling — wait a few minutes. If a pod is stuck, the <a href="/learn/troubleshooting">Troubleshooting</a> lesson has the fixes, or re-run a single phase (e.g. <code>./scripts/45-openclaw.sh</code>) — never the whole <code>setup.sh</code> again.
+</Callout>
+
+Next: open your agent and the console.
