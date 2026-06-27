@@ -1,28 +1,21 @@
-The stack is up. Two UIs to open — both are published as host ports and exposed via your Brev tunnels.
+The stack is up, and both web UIs are already published as host ports — so **Brev gives you a clickable URL for each on your instance page**. Just open them; no shell, no port-forward.
 
 ## Open the OpenClaw UI
 
-It's published on host port **`30789`** — **open the `openclaw` tunnel URL straight from your Brev instance page** in a browser (no shell, no port-forward). Log in with the workshop password.
+On your Brev instance page, open the tunnel for port **`30789`** in a browser. Log in with the workshop password.
 
-First connection will ask for **device pairing** — that's the next lesson. (If you just want to confirm it's serving before opening, `curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:30789/` in the shell returns `200`.)
+First connection will ask for **device pairing** — that's the next lesson.
 
 ## Open the OpenShift console
 
-If phase 60 ran, the console is at host port **`30900`** under `/console/`:
-
-```bash
-curl -s -o /dev/null -w "console :30900 -> %{http_code}\n" http://127.0.0.1:30900/console/
-```
+If the console phase ran, open the Brev tunnel for port **`30900`** and go to **`/console/`**.
 
 <Callout type="note" title="Console shows ‘no resources’?">
 Expected — MicroShift lacks the OpenShift <code>project.openshift.io</code> API the console scopes to. Switch the **Project dropdown to “All Projects”**, or browse <code>/console/k8s/all-namespaces/pods</code>.
 </Callout>
 
-## Quick health check
-
-```bash
-oc -n openclaw get pod openclaw-sandbox -o wide
-oc get nodes
-```
+<Callout type="tip" title="Don't see the tunnels?">
+Brev exposes a URL per published host port on your instance page. If a port isn't listed, add it there — these are plain host ports (<code>30789</code>, <code>30900</code>), no extra setup.
+</Callout>
 
 Next: pair your browser, then teach Shifty about a model.
