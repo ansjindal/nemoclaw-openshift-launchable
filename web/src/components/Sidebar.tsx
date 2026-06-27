@@ -12,7 +12,7 @@ export function Sidebar() {
       {CURRICULUM.map((part) => (
         <div key={part.id}>
           <div className="px-2 pb-2">
-            <div className={`text-[0.82rem] font-bold ${part.accent === "rh" ? "text-[var(--color-rh-bright)]" : part.accent === "nv" ? "text-[var(--color-nv-bright)]" : "text-[var(--color-fg)]"}`}>{part.title}</div>
+            <div className="text-[0.82rem] font-bold text-[var(--color-nv-bright)]">{part.title}</div>
             <div className="text-[0.7rem] text-[var(--color-fg-mut)]">{part.subtitle}</div>
           </div>
           {part.lessons.map((l) => {
