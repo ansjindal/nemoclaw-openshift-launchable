@@ -24,7 +24,7 @@ const SECS: Sec[] = [
     lines: ["    endpoints:", "      - host: integrate.api.nvidia.com", "        port: 443", "        protocol: rest", "        enforcement: enforce   # L7 inspect"],
     detail: <>Which host:port the binary may reach. <code>enforcement: enforce</code> = L7 — the proxy inspects methods/paths (the <code>rules</code> below). <code>access: full</code> instead = an L4 tunnel (raw TLS, for package managers) with no rule inspection.</> },
   { id: "bin", color: AMBER, kind: "dynamic", title: "binaries", enforce: "/proc/<pid>/exe SHA-256",
-    lines: ["    binaries:", "      - /usr/bin/node"],
+    lines: ["    binaries:", "      - /usr/bin/node", "      - /usr/local/bin/node"],
     detail: <>WHICH executables may use this endpoint — the proxy reads <code>/proc/&lt;pid&gt;/exe</code> and SHA-256-hashes the calling binary (trust-on-first-use). <code>git → github ✓</code> but <code>curl → anywhere ✗</code>: this is what stops data exfil through an unexpected binary.</> },
   { id: "rules", color: PURPLE, kind: "dynamic", title: "rules", enforce: "L7 method+path",
     lines: ["    rules:", "      - method: POST", "        path: /v1/**          # glob; * method forbidden"],
@@ -33,7 +33,7 @@ const SECS: Sec[] = [
     lines: ["filesystem:", "  read_only:  [/usr, /lib, /etc]", "  read_write: [/sandbox, /tmp]"],
     detail: <>Kernel-enforced via <strong>Landlock LSM</strong> — paths not listed are simply inaccessible, below the app layer. Guards against binary tampering + credential theft. <strong>Static</strong>: locked at creation; changing it recreates the sandbox.</> },
   { id: "proc", color: "#22d3ee", kind: "static", title: "process", enforce: "seccomp-BPF + privilege drop",
-    lines: ["process:", "  run_as_user: sandbox      # non-root", "  allowed_binaries: [/usr/bin/node, /bin/sh]"],
+    lines: ["process:", "  run_as_user: sandbox      # non-root", "  allowed_binaries: [/usr/bin/node, /usr/local/bin/node, /bin/sh]"],
     detail: <>Runs as a non-root user (setuid/setgid drop; re-acquiring root fails) with a <strong>seccomp-BPF</strong> filter blocking dangerous syscalls (and <code>PR_SET_NO_NEW_PRIVS</code>). Guards against priv-esc + fork bombs. <strong>Static</strong>: locked at creation.</> },
 ];
 

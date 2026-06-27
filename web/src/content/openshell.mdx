@@ -9,14 +9,14 @@ Two paths run through OpenShell: the **agent path** (how an agent comes alive an
 ### The agent path
 - **Gateway** — the control plane (gRPC :8080). It allocates sandboxes, mints each a scoped identity, and hosts the policy engine + inference router. On K8s it's a StatefulSet whose *compute driver* watches the Sandbox CRD.
 - **Sandbox Supervisor** (`openshell-sandbox`) — sideloaded into **every** sandbox as an init-container. It builds the agent's isolated network namespace, exchanges a bootstrap token for a sandbox JWT (`IssueSandboxToken`), relays exec/SSH, and enforces sandbox-side policy.
-- **Agent Harness** — the agent itself (Definition · Memory · Skills), wrapped by the supervisor. For us that's OpenClaw + Shifty's `.md` files.
+- **Agent Harness** — the agent itself (Definition · Memory · Skills), wrapped by the supervisor for gateway-created sandboxes. For the prebuilt Shifty pod, the same OpenClaw image and `.md` workspace run as an agent-sandbox `Sandbox`, with OpenShift NetworkPolicy as the live backstop.
 - **Sub-Agents** — focused agents the harness can spawn, each its own sandbox with its own identity and policy.
 - **Accelerated Tooling** — what the agent reaches *through the guardrail*: filesystem, search, Omniverse/CAD, models — via API, CLI, or MCP.
 
 ### The guardrail path
 - **Policy Engine + Validator** — deny-by-default. Per binary, which hosts/methods/paths are allowed; a draft validator can propose additions for a human to approve.
 - **Network Guardrail** — kernel-level, per-binary egress (`git → github.com ✓`, `curl → anywhere ✗`). Stops exfil through unknown channels; instant, no restart on change.
-- **Privacy Router** — every sandbox calls one URL, `inference.local`; the router strips the sandbox's creds and injects the real backend key + model, so **the agent never holds the upstream key**, and routes local-vs-cloud frontier models.
+- **Privacy Router** — gateway-created sandboxes can call one URL, `inference.local`; the router strips sandbox-local creds and injects the real backend key + model. The prebuilt Shifty pod is simpler for the workshop: it stores its provider config in an in-cluster Secret/writable OpenClaw config.
 - **Model** — where inference runs. Here, a remote OpenAI-compatible endpoint (no local GPU); in a GPU cluster, an in-cluster vLLM.
 
 <Callout type="note" title="Why a runtime (not just a prompt)">
@@ -41,7 +41,7 @@ Every sandbox is bounded at five independent layers — some locked at creation,
 | **Inference** | credential exposure | privacy router intercepts `inference.local` | ✅ `openshell inference set` |
 | **Gateway** | unauth access, transport tampering | mTLS + token auth (cluster CA) | config |
 
-That's the defense-in-depth: even a fully prompt-injected agent is boxed in by the kernel and the proxy, not by a prompt.
+That's the defense-in-depth for OpenShell-governed sandboxes: even a fully prompt-injected agent is boxed in by the kernel and the proxy, not by a prompt. Shifty separately demonstrates the OpenShift-native half of the same story: SCC, pod security settings, and Kubernetes NetworkPolicy.
 
 <Callout type="note" title="Where our instance simplifies">
 Single-node, CPU-only, NodePort instead of Envoy/LoadBalancer, remote inference instead of a local model, and unauthenticated CLI instead of OIDC. The <em>shape</em> is identical to the production diagram — fewer optional add-ons.
@@ -68,5 +68,5 @@ You'll hear "gateway" twice: the <strong>OpenShell gateway</strong> (control pla
 </Callout>
 
 <Callout type="rh" title="What this launchable exercises">
-You'll drive the <strong>gateway</strong> for real: <code>openshell sandbox create</code> mints an identity, writes a <code>Sandbox</code> CR, the controller reconciles a Pod, and the <strong>supervisor</strong> sideloads + connects back — all the way to <code>Ready</code>. Inference points at a remote endpoint through the privacy router. The next lessons run these end to end.
+You'll drive the <strong>gateway</strong> for real: <code>openshell sandbox create</code> mints an identity, writes a <code>Sandbox</code> CR, the controller reconciles a Pod, and the <strong>supervisor</strong> sideloads + connects back — all the way to <code>Ready</code>. Shifty uses a direct OpenClaw provider config; gateway-created sandboxes can use the OpenShell inference router. The next lessons run these paths end to end.
 </Callout>

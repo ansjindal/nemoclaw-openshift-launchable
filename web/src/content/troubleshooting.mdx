@@ -9,6 +9,14 @@ sudo ss -ltnp | grep -E ':30789|:30900'
 sudo systemctl restart minc-nodeport-forward.service   # if you just recreated the agent
 ```
 
+If `openshell sandbox list` cannot connect from the lab shell, check the same service for port `30808`:
+
+```bash
+sudo ss -ltnp | grep ':30808'
+openshell gateway select cluster
+openshell sandbox list
+```
+
 ## OpenClaw asks for device pairing
 That's expected — approve it (see **Part IV · Device Pairing**):
 

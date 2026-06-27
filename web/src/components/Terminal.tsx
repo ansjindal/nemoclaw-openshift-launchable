@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { registerShellSender } from "@/lib/labBus";
+import { PlugZap, RotateCcw, TerminalSquare } from "lucide-react";
 
 type Status = "idle" | "connecting" | "live" | "closed" | "error";
 
@@ -16,6 +17,7 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
   const hostRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<Status>("idle");
   const [started, setStarted] = useState(false);
+  const [session, setSession] = useState(0);
   const [err, setErr] = useState<string | null>(null);
   const h = fill ? "h-[calc(100vh-9rem)] min-h-[440px]" : "h-[400px]";
 
@@ -34,6 +36,7 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
     let ro: ResizeObserver | undefined;
     let onTheme: (() => void) | undefined;
     let disposed = false;
+    setErr(null);
     setStatus("connecting");
 
     const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -104,10 +107,14 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
       try { ws?.close(); } catch {}
       try { term?.dispose(); } catch {}
     };
-  }, [started]);
+  }, [started, session]);
 
   const dot = status === "live" ? "#76b900" : status === "error" || status === "closed" ? "#ee0000" : "#8a93a3";
   const statusLabel = status === "live" ? "connected" : status;
+  const reconnect = () => {
+    if (!started) setStarted(true);
+    else setSession((n) => n + 1);
+  };
 
   return (
     <div className={`flex flex-col overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-term-bg)] shadow-[0_8px_30px_rgba(0,0,0,0.18)] ${h}`}>
@@ -123,11 +130,25 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
           <span className={status === "live" ? "animate-pulse" : ""} style={{ width: 7, height: 7, borderRadius: 7, background: dot, display: "inline-block" }} />
           {statusLabel}
         </span>
+        {started && (
+          <button
+            onClick={reconnect}
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[var(--color-line-2)] text-[var(--color-fg-mut)] transition hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
+            title="Reconnect shell"
+          >
+            <RotateCcw size={13} />
+          </button>
+        )}
       </div>
       {!started ? (
-        <button onClick={() => setStarted(true)} className="m-auto rounded-lg border border-[var(--color-nv-dim)] px-5 py-2.5 text-sm font-semibold text-[var(--color-nv-bright)] transition hover:bg-[var(--color-panel)] hover:shadow-[0_0_0_3px_var(--color-nv-dim)]">
-          ▶ Open lab shell
-        </button>
+        <div className="m-auto flex flex-col items-center gap-3 px-6 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--color-line-2)] bg-[var(--color-panel)] text-[var(--color-nv-bright)]">
+            <TerminalSquare size={22} />
+          </div>
+          <button onClick={() => setStarted(true)} className="inline-flex items-center gap-2 rounded-lg border border-[var(--color-nv-dim)] px-5 py-2.5 text-sm font-semibold text-[var(--color-nv-bright)] transition hover:bg-[var(--color-panel)] hover:shadow-[0_0_0_3px_var(--color-nv-dim)]">
+            <PlugZap size={15} /> Open lab shell
+          </button>
+        </div>
       ) : (
         <div className="min-h-0 flex-1 px-3 pb-2 pt-2.5">
           <div ref={hostRef} className="h-full w-full" />

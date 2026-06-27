@@ -38,13 +38,13 @@ You'll see `openclaw/openclaw-sandbox` — that's Shifty. Inspect it:
 oc -n openclaw describe sandbox openclaw-sandbox | head -40
 ```
 
-## Policies — what a sandbox may do
+## Policies — what a gateway sandbox may do
 
-A sandbox policy is **one YAML file with two halves**: a *dynamic* network section that hot-reloads on a running sandbox, and *static* filesystem + process sections locked in at creation and enforced in the kernel. Click through each part:
+An OpenShell-managed sandbox policy is **one YAML file with two halves**: a *dynamic* network section that hot-reloads on a running sandbox, and *static* filesystem + process sections locked in at creation and enforced in the kernel. Click through each part:
 
 <PolicyExplorer />
 
-Every section maps to a real enforcement point — nothing here is advisory:
+For sandboxes created through the OpenShell gateway, every section maps to a real enforcement point — nothing here is advisory:
 
 | Layer | Protects against | Enforced by | Runtime change? |
 | --- | --- | --- | --- |
@@ -54,20 +54,20 @@ Every section maps to a real enforcement point — nothing here is advisory:
 
 ### See it on your cluster
 
-The repo ships Shifty's policy (deny-by-default, balanced tier). Read the real file:
+The repo ships an OpenShell policy you can use for gateway-created OpenClaw sandboxes (deny-by-default, balanced tier). Read the real file:
 
 ```bash
 sed -n '1,45p' ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml
 ```
 
-And the OpenShift-level backstop — a deny-by-default `NetworkPolicy` on the pod (defense-in-depth *under* the OpenShell proxy):
+Shifty's live, prebuilt pod is governed by the OpenShift-level backstop — a deny-by-default `NetworkPolicy` on the pod:
 
 ```bash
 oc -n openclaw get networkpolicy
 ```
 
 <Callout type="tip" title="The iterate loop">
-Start a sandbox in <strong>audit</strong> mode (violations logged, not blocked), watch <code>openshell logs &lt;name&gt;</code> for denials, add the endpoints you actually need to <code>network_policies</code>, then flip to <strong>enforce</strong>. Tighten without downtime — network rules hot-reload.
+For a gateway-created sandbox, start in <strong>audit</strong> mode (violations logged, not blocked), watch <code>openshell logs &lt;name&gt;</code> for denials, add the endpoints you actually need to <code>network_policies</code>, then flip to <strong>enforce</strong>. Tighten without downtime — network rules hot-reload.
 </Callout>
 
 <Callout type="note" title="Who reconciles the sandbox?">

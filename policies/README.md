@@ -31,6 +31,7 @@ network_policies:
         # access: full                # … OR L4 tunnel (package managers); omit rules
     binaries:                         # REQUIRED — stops exfil via curl/wget
       - /usr/bin/node
+      - /usr/local/bin/node
     rules:                            # required unless access: full
       - method: GET | POST | PUT | PATCH | DELETE   # wildcard '*' is forbidden
         path: /api/**                 # glob; /** = all subpaths
@@ -43,7 +44,7 @@ filesystem:
   read_write: [/sandbox, /tmp]
   read_only:  [/usr, /etc, /lib, /bin]
 process:
-  allowed_binaries: [/usr/bin/node, /bin/bash, ...]
+  allowed_binaries: [/usr/bin/node, /usr/local/bin/node, /bin/bash, ...]
 ```
 
 ## Tiers

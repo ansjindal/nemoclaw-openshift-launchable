@@ -2,7 +2,7 @@ Let's build **one** copilot together, end to end — a read-only **Pod Doctor** 
 
 ## Worked example · Pod Doctor (read-only)
 
-### Step 1 — a read-only identity
+### Step 1 — a read-only cluster identity
 
 A copilot should *read and propose*, not mutate. Give it a ServiceAccount with the built-in `view` role:
 
@@ -14,7 +14,7 @@ oc adm policy add-cluster-role-to-user view -z pod-doctor -n openclaw
 Mint a short-lived token you can hand the agent:
 
 ```bash
-oc create token pod-doctor -n openclaw --duration=1h
+TOKEN="$(oc create token pod-doctor -n openclaw --duration=1h)"
 ```
 
 ### Step 2 — open the network path with an OpenShell policy
@@ -32,7 +32,7 @@ network_policies:
       - host: kubernetes.default.svc.cluster.local
         port: 443
         enforcement: enforce      # L7 inspect — only the paths below
-    binaries: [/usr/bin/oc, /usr/bin/kubectl, /usr/bin/node]
+    binaries: [/usr/bin/oc, /usr/local/bin/oc, /usr/bin/kubectl, /usr/local/bin/kubectl, /usr/bin/node, /usr/local/bin/node]
     rules:
       - { method: GET, path: /api/** }    # read-only: GET only
       - { method: GET, path: /apis/** }   # no POST/PUT/DELETE → can't mutate
@@ -40,29 +40,88 @@ network_policies:
 
 The key idea: **the policy is the guardrail**. `GET`-only paths mean that even if the agent *tries* to delete something, the proxy refuses the call. Safety isn't a prompt — it's enforced at the network.
 
-### Step 3 — create the Pod Doctor sandbox with that policy
+### Step 3 — create a real OpenClaw sandbox with that policy
+
+Grab the same model config/password Shifty uses, then start a second OpenClaw gateway as an OpenShell-managed sandbox:
 
 ```bash
+GW_PASSWORD="$(oc -n openclaw get secret openclaw-gateway-password -o jsonpath='{.data.password}' | base64 -d)"
+oc -n openclaw get secret openclaw-config -o jsonpath='{.data.openclaw\.json}' | base64 -d > /tmp/pod-doctor-openclaw.json
+
 openshell sandbox create --name pod-doctor \
   --policy policies/presets/cluster-copilot.yaml \
-  --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest \
-  -- sh -c 'sleep infinity'
+  --from ghcr.io/openclaw/openclaw:2026.6.10 \
+  --env OPENCLAW_CONFIG_PATH=/workspace/openclaw.json \
+  --env OPENCLAW_GATEWAY_PASSWORD="$GW_PASSWORD" \
+  -- node dist/index.js gateway --bind=lan --port 18789 --allow-unconfigured --auth password --verbose
 openshell sandbox list
+oc -n openshell wait --for=condition=Ready pod/pod-doctor --timeout=180s
+
+oc -n openshell cp /tmp/pod-doctor-openclaw.json pod-doctor:/workspace/openclaw.json -c agent
+oc -n openshell exec pod-doctor -c agent -- node dist/index.js config reload
 ```
 
-### Step 4 — tell it who it is, and ask it something real
+### Step 4 — inject the read-only cluster credential
 
-Seed a one-line brief (its `SOUL.md`), then put it to work:
+The sandbox does **not** get a cluster token by default. Put the short-lived token and cluster CA into its workspace:
+
+```bash
+oc -n openshell exec pod-doctor -c agent -- mkdir -p /workspace/cluster
+printf "%s" "$TOKEN" | oc -n openshell exec -i pod-doctor -c agent -- sh -c 'cat > /workspace/cluster/token'
+oc -n openclaw get configmap kube-root-ca.crt -o jsonpath='{.data.ca\.crt}' \
+  | oc -n openshell exec -i pod-doctor -c agent -- sh -c 'cat > /workspace/cluster/ca.crt'
+```
+
+Smoke-test from **inside** the sandbox. This proves the token, CA, DNS, and OpenShell network policy all line up:
+
+```bash
+oc -n openshell exec pod-doctor -c agent -- node -e '
+const https = require("https");
+const fs = require("fs");
+const req = https.get({
+  hostname: "kubernetes.default.svc.cluster.local",
+  path: "/api/v1/namespaces/openclaw/pods",
+  ca: fs.readFileSync("/workspace/cluster/ca.crt"),
+  headers: { Authorization: `Bearer ${fs.readFileSync("/workspace/cluster/token", "utf8").trim()}` }
+}, (res) => {
+  console.log(`Kubernetes API status: ${res.statusCode}`);
+  process.exit(res.statusCode === 200 ? 0 : 1);
+});
+req.on("error", (err) => { console.error(err.message); process.exit(1); });
+'
+```
+
+### Step 5 — tell it who it is, then open it
+
+Seed the brief it should read before acting:
 
 ```bash
 oc -n openshell exec pod-doctor -c agent -- sh -c 'cat > /workspace/SOUL.md <<MD
 You are Pod Doctor. You have read-only oc access. Diagnose failing workloads:
-read events + logs, name the root cause, propose the exact fix command — never run writes.
+read events + logs through the Kubernetes API, name the root cause, propose the exact fix command — never run writes.
+
+Cluster credentials:
+- token: /workspace/cluster/token
+- CA: /workspace/cluster/ca.crt
+- API server: https://kubernetes.default.svc.cluster.local
 MD
 echo seeded'
 ```
 
-Now break something and let it diagnose (in the OpenClaw UI, or by prompting the agent):
+Expose its OpenClaw UI through the gateway, then open the Brev URL for port `18789`:
+
+```bash
+expose-agent pod-doctor 18789
+```
+
+Log in with the same password as Shifty. If the browser asks for device pairing, approve it from inside the new sandbox:
+
+```bash
+oc -n openshell exec pod-doctor -c agent -- node dist/index.js devices list
+oc -n openshell exec pod-doctor -c agent -- node dist/index.js devices approve --latest
+```
+
+Now break something small and let it diagnose:
 
 > "A pod in `openclaw` is unhealthy. Read its events and logs and tell me the root cause + the `oc` command you'd run to fix it."
 

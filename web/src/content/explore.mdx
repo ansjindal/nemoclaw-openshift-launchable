@@ -64,7 +64,7 @@ openshell policy list lab       # revision history
 openshell inference get
 ```
 
-The gateway's **privacy router**: set one backend here and every sandbox reaches it through `inference.local` — the agent never holds the key. `openshell inference set` points it at a provider+model.
+The gateway's **privacy router**: set one backend here and gateway-created sandboxes can reach it through `inference.local` — those agents never hold the upstream key. `openshell inference set` points it at a provider+model. Shifty's prebuilt workshop pod uses a direct OpenClaw provider config instead.
 
 ## 6. Expose a port — `forward` / `service`
 

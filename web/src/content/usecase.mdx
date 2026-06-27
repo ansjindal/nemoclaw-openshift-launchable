@@ -14,6 +14,17 @@ You already have an agent running *inside* a real OpenShift cluster. Give it the
 - **Guardrails are real** — bounded by OpenShift RBAC and OpenShell policy. Lean on them.
 - **Demo-first** — a small copilot that does one thing well beats a grand design that doesn't run.
 
+## The demo loop
+
+A strong copilot demo has four beats:
+
+1. **Show a real signal** — a failing pod, suspicious restart count, missing limit, or alert.
+2. **Let the copilot inspect** — it reads cluster state with a scoped identity.
+3. **Explain the diagnosis** — root cause, evidence, and confidence.
+4. **Propose the fix** — exact command or patch, with human approval before any write.
+
+That loop is what judges should see, whether your surface is chat, JSON, a dashboard, or a remediation form.
+
 <Callout type="rh" title="Why it's a great OpenShift demo">
 It shows agentic AI doing real platform work — triage, explain, remediate — on the same OpenShift APIs operators use every day. An AI teammate that speaks Kubernetes, safely.
 </Callout>

@@ -86,7 +86,7 @@ openshell sandbox list
 The gateway deletes the `Sandbox` CR, the controller removes the pod, and OpenShift reclaims everything.
 
 <Callout type="rh" title="This is the whole model">
-Ask the gateway for a sandbox → it mints an identity + writes a <code>Sandbox</code> CR → a controller reconciles it into a pod → the supervisor isolates it → OpenShift enforces RBAC/SCC/NetworkPolicy → you use it → delete to clean up. Every agent, including Shifty, rides this same path.
+Ask the gateway for a sandbox → it mints an identity + writes a <code>Sandbox</code> CR → a controller reconciles it into a pod → the supervisor isolates it → OpenShift enforces RBAC/SCC/NetworkPolicy → you use it → delete to clean up. Shifty and these gateway-created agents share the same Kubernetes <code>Sandbox</code> primitive; the gateway-created path adds the OpenShell supervisor, policy, exec, and forwarding flow.
 </Callout>
 
 <Callout type="tip" title="Hackathon angle">

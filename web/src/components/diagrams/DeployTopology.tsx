@@ -22,9 +22,9 @@ const BOXES: Record<string, Box> = {
   console:{ id: "console", label: "OpenShift Console", sub: "NodePort 30900 · /console", color: AMBER,
            detail: <>The web console for the cluster (read the whole stack as native objects). Optional phase 60. Reached at <code>/console</code> via the host forwarder.</> },
   fwd:   { id: "fwd", label: "Host NodePort forwarder", sub: "socat · systemd", color: SLATE,
-           detail: <>MicroShift runs <em>inside</em> the podman container, so NodePorts aren't on the host. A systemd <code>socat</code> service forwards host <code>30789/30900/30808</code> → the MINC node IP, so Brev tunnels can reach them.</> },
+           detail: <>MicroShift runs <em>inside</em> the podman container, so NodePorts aren't on the host. A systemd <code>socat</code> service forwards host <code>30789/30900/30808/30030</code> → the MINC node IP, so Brev tunnels can reach them.</> },
   inf:   { id: "inf", label: "Remote inference", sub: "OpenAI-compatible", color: CYAN,
-           detail: <>No local GPU — the privacy router forwards <code>inference.local</code> to a remote OpenAI-compatible endpoint (set in <code>.env</code>). The agent never holds the upstream key.</> },
+           detail: <>No local GPU. Shifty uses an OpenClaw provider config seeded from an in-cluster Secret; gateway-created sandboxes can use the OpenShell <code>inference.local</code> router so the upstream key stays at the gateway.</> },
 };
 
 export function DeployTopology() {

@@ -130,8 +130,11 @@ No Red Hat pull secret or subscription is required (MINC uses community images).
 | 9443 | MicroShift router HTTPS (MINC default) — serves the OpenShell + OpenClaw Routes |
 | 9080 | MicroShift router HTTP (MINC default) |
 | 6443 | MicroShift API server |
+| 3000 | Workshop website — interactive lessons + live shell |
 | 30789 | OpenClaw UI — host NodePort (DNS-free, served at `/`), published by phase 50 |
 | 30900 | OpenShift/OKD console — host NodePort (served at `/console/`), published by phase 50 (optional, needs phase 60) |
+| 30808 | OpenShell gateway NodePort — used by the in-browser lab shell's `openshell` CLI |
+| 30030 | Grafana — optional monitoring phase |
 
 OpenClaw UI/endpoint and the OpenShell gateway are reached via their **OpenShift Routes**
 through the router's published `:9443` (e.g. `https://openclaw-openclaw.apps.127.0.0.1.nip.io:9443`).
@@ -147,10 +150,11 @@ unauthenticated console to loopback/SSH tunnels).
 ### Login UX
 
 - **OpenClaw Control UI**: a single **fixed password** (`OPENCLAW_GATEWAY_PASSWORD` in `.env`,
-  default `openclaw`) — the gateway runs `--auth password`. Device **pairing is auto-approved**
-  by the in-pod `pair-approver` sidecar, so users only ever type the password. (The password is
-  supplied via the `OPENCLAW_GATEWAY_PASSWORD` env, not `--password-file` — secret volumes mount
-  as symlinks, which OpenClaw rejects.)
+  default `openclaw`) — the gateway runs `--auth password`. The first browser also needs
+  one-time **device pairing**, approved from the lab shell with
+  `openclaw devices list` / `openclaw devices approve <REQUEST_ID>`. (The password is supplied
+  via the `OPENCLAW_GATEWAY_PASSWORD` env, not `--password-file` — secret volumes mount as
+  symlinks, which OpenClaw rejects.)
 - **OpenShift console**: no login (`--user-auth=disabled`). The bridge needs a static user token
   even when auth is disabled, so a non-expiring `console-sa-token` Secret is injected as
   `BRIDGE_K8S_AUTH_BEARER_TOKEN` (cluster-admin) — without it the UI shows "configure authentication".

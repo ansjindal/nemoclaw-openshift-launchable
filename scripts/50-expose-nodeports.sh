@@ -52,7 +52,7 @@ set -uo pipefail
 ENGINE="${CONTAINER_ENGINE:-podman}"
 NODE_CTR="${MINC_NODE_CONTAINER:-microshift}"
 BIND_ADDR="${NODEPORT_BIND_ADDR:-0.0.0.0}"
-PORTS="${NODEPORT_FORWARDS:-30789 30900}"
+PORTS="${NODEPORT_FORWARDS:-30789 30900 30808 30030}"
 
 node_ip() { "$ENGINE" inspect "$NODE_CTR" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || true; }
 

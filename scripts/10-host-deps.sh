@@ -8,7 +8,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$HERE/lib/common.sh"
 load_env
 
-ENGINE="${CONTAINER_ENGINE:-docker}"
+ENGINE="${CONTAINER_ENGINE:-podman}"
 MINC_VERSION="${MINC_VERSION:-latest}"
 
 log "Ensuring base tooling"

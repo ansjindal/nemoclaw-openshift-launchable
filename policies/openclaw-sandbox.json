@@ -5,7 +5,7 @@
       "endpoints": [
         { "host": "integrate.api.nvidia.com", "port": 443, "protocol": "rest", "enforcement": "enforce" }
       ],
-      "binaries": ["/usr/bin/node", "/usr/bin/python*"],
+      "binaries": ["/usr/bin/node", "/usr/local/bin/node", "/usr/bin/python*", "/usr/local/bin/python*"],
       "rules": [{ "method": "POST", "path": "/v1/**" }]
     },
     {
@@ -13,7 +13,7 @@
       "endpoints": [
         { "host": "clawhub.nvidia.com", "port": 443, "protocol": "rest", "enforcement": "enforce" }
       ],
-      "binaries": ["/usr/bin/node"],
+      "binaries": ["/usr/bin/node", "/usr/local/bin/node"],
       "rules": [{ "method": "GET", "path": "/**" }]
     },
     {
@@ -22,7 +22,7 @@
         { "host": "api.openclaw.ai", "port": 443, "protocol": "rest", "enforcement": "enforce" },
         { "host": "docs.openclaw.ai", "port": 443, "protocol": "rest", "enforcement": "enforce" }
       ],
-      "binaries": ["/usr/bin/node"],
+      "binaries": ["/usr/bin/node", "/usr/local/bin/node"],
       "rules": [{ "method": "GET", "path": "/**" }]
     },
     {
@@ -30,7 +30,7 @@
       "endpoints": [
         { "host": "registry.npmjs.org", "port": 443, "protocol": "rest", "access": "full" }
       ],
-      "binaries": ["/usr/bin/npm", "/usr/bin/node"]
+      "binaries": ["/usr/bin/npm", "/usr/local/bin/npm", "/usr/bin/node", "/usr/local/bin/node"]
     },
     {
       "name": "pypi",
@@ -38,14 +38,14 @@
         { "host": "pypi.org", "port": 443, "protocol": "rest", "access": "full" },
         { "host": "files.pythonhosted.org", "port": 443, "protocol": "rest", "access": "full" }
       ],
-      "binaries": ["/usr/bin/pip*", "/usr/bin/python*"]
+      "binaries": ["/usr/bin/pip*", "/usr/local/bin/pip*", "/usr/bin/python*", "/usr/local/bin/python*"]
     },
     {
       "name": "huggingface",
       "endpoints": [
         { "host": "huggingface.co", "port": 443, "protocol": "rest", "enforcement": "enforce" }
       ],
-      "binaries": ["/usr/bin/python*"],
+      "binaries": ["/usr/bin/python*", "/usr/local/bin/python*"],
       "rules": [{ "method": "GET", "path": "/**" }]
     }
   ],
@@ -56,9 +56,13 @@
   "process": {
     "allowed_binaries": [
       "/usr/bin/node",
+      "/usr/local/bin/node",
       "/usr/bin/npm",
+      "/usr/local/bin/npm",
       "/usr/bin/python*",
+      "/usr/local/bin/python*",
       "/usr/bin/pip*",
+      "/usr/local/bin/pip*",
       "/bin/sh",
       "/bin/bash"
     ]

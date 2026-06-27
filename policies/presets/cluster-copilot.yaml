@@ -7,7 +7,9 @@
 # Apply it to a NEW gateway sandbox at creation:
 #   openshell sandbox create --name pod-doctor \
 #     --policy policies/presets/cluster-copilot.yaml \
-#     --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest -- sh -c 'sleep infinity'
+#     --from ghcr.io/openclaw/openclaw:2026.6.10 \
+#     --env OPENCLAW_CONFIG_PATH=/workspace/openclaw.json \
+#     -- node dist/index.js gateway --bind=lan --port 18789 --allow-unconfigured --auth password
 #
 # The agent still needs an RBAC token (a read-only ServiceAccount) to authenticate;
 # this policy only opens the *network path* through the privacy proxy.
@@ -21,8 +23,11 @@ network_policies:
         enforcement: enforce          # L7 inspect: only the GET paths below are allowed
     binaries:
       - /usr/bin/oc
+      - /usr/local/bin/oc
       - /usr/bin/kubectl
+      - /usr/local/bin/kubectl
       - /usr/bin/node
+      - /usr/local/bin/node
     rules:
       - method: GET
         path: /api/**                 # core API (pods, events, nodes, ...)
@@ -40,7 +45,9 @@ network_policies:
         enforcement: enforce
     binaries:
       - /usr/bin/oc
+      - /usr/local/bin/oc
       - /usr/bin/node
+      - /usr/local/bin/node
     rules:
       - method: GET
         path: /api/v1/**              # /query, /query_range, /label/*/values, ...

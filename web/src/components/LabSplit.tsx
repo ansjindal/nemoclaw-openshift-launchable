@@ -1,6 +1,7 @@
 "use client";
-import { useRef, useState, type ReactNode, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type ReactNode, type CSSProperties } from "react";
 import { Terminal } from "./Terminal";
+import { PanelRightClose, PanelRightOpen, RotateCcw, TerminalSquare } from "lucide-react";
 
 // Hands-on lessons: content on the left, a live lab shell on the right.
 // The shell column is draggable (resize width) and sticky (stays in view on scroll).
@@ -9,6 +10,21 @@ export function LabSplit({ children }: { children: ReactNode; slug?: string }) {
   const [shellPct, setShellPct] = useState(44); // % width of the shell column (desktop)
   const [show, setShow] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const savedShow = window.localStorage.getItem("oclaw:shell-open");
+    const savedPct = Number(window.localStorage.getItem("oclaw:shell-pct"));
+    if (savedShow === "false") setShow(false);
+    if (Number.isFinite(savedPct) && savedPct >= 26 && savedPct <= 68) setShellPct(savedPct);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("oclaw:shell-open", String(show));
+  }, [show]);
+
+  useEffect(() => {
+    window.localStorage.setItem("oclaw:shell-pct", String(shellPct));
+  }, [shellPct]);
 
   function startDrag(e: React.MouseEvent) {
     e.preventDefault();
@@ -31,29 +47,53 @@ export function LabSplit({ children }: { children: ReactNode; slug?: string }) {
 
   if (!show) {
     return (
-      <div className="prose max-w-3xl">
-        {children}
-        <button onClick={() => setShow(true)} className="fixed bottom-4 right-4 z-30 rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-panel)] px-4 py-2 text-sm font-semibold text-[var(--color-nv-bright)]">
-          ▶ show shell
+      <div className="relative">
+        <div className="prose max-w-none xl:max-w-6xl">
+          {children}
+        </div>
+        <button onClick={() => setShow(true)} className="fixed bottom-4 right-4 z-30 rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-panel)] px-4 py-2 text-sm font-semibold text-[var(--color-nv-bright)] shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition hover:bg-[var(--color-bg-2)]">
+          <span className="inline-flex items-center gap-2"><PanelRightOpen size={15} /> Show shell</span>
         </button>
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="flex w-full flex-col lg:flex-row" style={{ "--shell-w": `${shellPct}%` } as CSSProperties}>
-      <div className="prose min-w-0 flex-1 lg:pr-3">{children}</div>
+    <div ref={containerRef} className="flex w-full flex-col gap-4 lg:flex-row lg:gap-0" style={{ "--shell-w": `${shellPct}%` } as CSSProperties}>
+      <div className="prose min-w-0 flex-1 lg:pr-5">{children}</div>
 
       <div
         onMouseDown={startDrag}
-        className="hidden w-1.5 shrink-0 cursor-col-resize bg-[var(--color-line)] transition-colors hover:bg-[var(--color-nv)] lg:block"
+        className="group hidden w-3 shrink-0 cursor-col-resize items-stretch justify-center lg:flex"
         title="Drag to resize the shell"
-      />
+      >
+        <span className="my-2 w-px rounded-full bg-[var(--color-line)] transition-colors group-hover:bg-[var(--color-nv)]" />
+      </div>
 
-      <div className="mt-4 w-full shrink-0 lg:mt-0 lg:w-auto lg:basis-[var(--shell-w)]">
+      <div className="w-full shrink-0 lg:w-auto lg:basis-[var(--shell-w)]">
         <div className="lg:sticky lg:top-16">
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-[var(--color-line)] bg-[var(--color-panel)] px-2.5 py-2">
+            <span className="inline-flex min-w-0 items-center gap-2 text-xs font-semibold text-[var(--color-fg-dim)]">
+              <TerminalSquare size={15} className="text-[var(--color-nv-bright)]" />
+              <span className="truncate">Live lab shell</span>
+            </span>
+            <span className="ml-auto hidden text-[10px] text-[var(--color-fg-mut)] sm:inline">{Math.round(shellPct)}%</span>
+            <button
+              onClick={() => setShellPct(44)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-line-2)] text-[var(--color-fg-mut)] transition hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
+              title="Reset shell width"
+            >
+              <RotateCcw size={14} />
+            </button>
+            <button
+              onClick={() => setShow(false)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-line-2)] text-[var(--color-fg-mut)] transition hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
+              title="Hide shell"
+            >
+              <PanelRightClose size={15} />
+            </button>
+          </div>
           <Terminal title="lab shell — oc + openclaw" fill />
-          <button onClick={() => setShow(false)} className="mt-2 text-xs text-[var(--color-fg-mut)] hover:text-[var(--color-fg)]">hide shell</button>
         </div>
       </div>
     </div>

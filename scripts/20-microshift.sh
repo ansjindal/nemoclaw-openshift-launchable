@@ -11,7 +11,7 @@ load_env
 require_cmd minc
 require_cmd oc
 
-ENGINE="${CONTAINER_ENGINE:-docker}"
+ENGINE="${CONTAINER_ENGINE:-podman}"
 KUBECONFIG_OUT="$(kubeconfig_path)"
 
 # Rootless Docker needs no sudo; rootful Podman does. Pick the prefix accordingly.

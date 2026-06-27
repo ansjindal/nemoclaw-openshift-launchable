@@ -56,8 +56,8 @@ else
 fi
 
 # Store config in a Secret (it holds the API key) + a fixed gateway password Secret.
-# Fixed password (not a random token) so workshop users can be told it up front; the
-# pair-approver sidecar auto-approves device pairing so the password is the only step.
+# Fixed password (not a random token) so workshop users can be told it up front.
+# Device pairing remains enabled and is approved in the pairing lesson.
 GW_PASSWORD="${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"
 log "Creating openclaw-config Secret + gateway password Secret"
 oc -n "$NS" create secret generic openclaw-config \
@@ -85,8 +85,7 @@ fi
 ENGINE="${CONTAINER_ENGINE:-podman}"
 NODE_CTR="${MINC_NODE_CONTAINER:-microshift}"
 PULL="sudo $ENGINE"   # MINC node runs under rootful podman/docker
-# The sandbox + pair-approver containers share the same image, so the manifest has the
-# line twice — take the first match only, or the doubled value becomes an invalid ref.
+# Take the first OpenClaw image reference from the manifest.
 OPENCLAW_IMAGE="$(grep -oE 'image: ghcr.io/openclaw/openclaw:[^ ]+' "$REPO_ROOT/manifests/openclaw/openclaw-sandbox.yaml" | awk '{print $2}' | head -n1)"
 
 ensure_image_in_node() {
@@ -142,7 +141,6 @@ oc -n "$NS" wait --for=condition=Ready pod/openclaw-sandbox --timeout=180s || oc
 ROUTE_HOST="$(oc -n "$NS" get route openclaw -o jsonpath='{.spec.host}' 2>/dev/null || true)"
 log "OpenClaw endpoint exposed at: https://${ROUTE_HOST}"
 log "OpenClaw UI (host NodePort, DNS-free): http://<host>:30789/"
-log "Control UI login password: ${GW_PASSWORD}  (device pairing is auto-approved)"
+log "Control UI login password: ${GW_PASSWORD}  (first browser still needs device pairing approval)"
 log "Confirm the model is your custom endpoint:"
-# Pod has two containers now (gateway + pair-approver) — read the gateway's logs explicitly.
 oc -n "$NS" logs openclaw-sandbox -c openclaw 2>&1 | grep -i "agent model" | tail -1 || true

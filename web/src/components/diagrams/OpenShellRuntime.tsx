@@ -23,7 +23,7 @@ const COMPONENTS: Comp[] = [
     what: <>Sideloaded into <em>every</em> sandbox. It sets up the agent's isolated network namespace, exchanges a bootstrap token for a sandbox JWT, relays exec/SSH, and enforces the sandbox-side policy.</>,
     k8s: <>An <strong>init-container</strong> (<code>openshell-supervisor-install</code>) copies the <code>openshell-sandbox</code> binary into the pod; the <code>agent</code> container runs it. It calls <code>IssueSandboxToken</code> back to the gateway over the in-cluster Service.</> },
   { id: "harness", label: "Agent Harness", sub: "Definition · Memory · Skills", color: BLUE, lane: "agent",
-    what: <>The agent itself, wrapped by the supervisor: its <strong>Definition</strong> (who it is), <strong>Memory</strong> (the workspace), and <strong>Skills</strong> (what it can do). For us that's OpenClaw + Shifty's <code>.md</code> files.</>,
+    what: <>The agent itself: its <strong>Definition</strong> (who it is), <strong>Memory</strong> (the workspace), and <strong>Skills</strong> (what it can do). Gateway-created agents are wrapped by the supervisor; Shifty uses the same OpenClaw workspace model in a prebuilt Sandbox.</>,
     k8s: <>The <code>agent</code> container in the sandbox Pod, running the OpenClaw image. Its workspace (<code>IDENTITY.md</code>/<code>SOUL.md</code>/…) lives on a mounted PVC.</> },
   { id: "subs", label: "Sub-Agents", sub: "spawned on demand", color: GREEN, lane: "agent",
     what: <>Agents can spawn focused sub-agents (a recon agent, an incident responder) — each its own sandbox with its own identity and policy.</>,
@@ -39,11 +39,11 @@ const COMPONENTS: Comp[] = [
     what: <>Kernel-level egress control: <code>git → github.com ✓</code>, <code>curl → anywhere ✗</code>. Same host, per-binary — stops data exfil through unknown channels. Instant, no restart on policy change.</>,
     k8s: <>Enforced at the sandbox proxy, backed by an OpenShift <strong>NetworkPolicy</strong> that restricts pod ingress/egress. Defense-in-depth with the policy engine above.</> },
   { id: "router", label: "Privacy Router", sub: "inference.local", color: CYAN, lane: "guard",
-    what: <>Every sandbox calls one URL — <code>inference.local</code>. The router <strong>strips the sandbox's creds and injects the real backend key + model</strong>, so the agent never holds the upstream key, and routes local-vs-cloud frontier models.</>,
-    k8s: <>An L7 proxy in the gateway. Change the backend once (<code>openshell inference set</code>) and it propagates to every sandbox in ~5s. The agent's API key never touches the pod.</> },
+    what: <>OpenShell-governed sandboxes can call one URL — <code>inference.local</code>. The router <strong>strips sandbox-local creds and injects the real backend key + model</strong>, so those agents never hold the upstream key, and routes local-vs-cloud frontier models.</>,
+    k8s: <>An L7 proxy in the gateway. Change the backend once (<code>openshell inference set</code>) and it propagates to managed sandboxes in ~5s. Shifty's workshop shortcut is a direct OpenClaw provider config seeded from a Secret.</> },
   { id: "model", label: "Model", sub: "local or cloud frontier", color: SLATE, lane: "guard",
     what: <>Where inference actually runs: a local frontier model (e.g. Nemotron) for privacy, or a cloud frontier model — chosen by the router, invisible to the agent.</>,
-    k8s: <>For this launchable, a <strong>remote OpenAI-compatible endpoint</strong> (no local GPU) the router forwards to. In a GPU cluster it'd be an in-cluster vLLM Service.</> },
+    k8s: <>For this launchable, inference is a <strong>remote OpenAI-compatible endpoint</strong> (no local GPU). Gateway-created sandboxes can reach it via the router; Shifty reaches it through OpenClaw provider config.</> },
 ];
 
 export function OpenShellRuntime() {

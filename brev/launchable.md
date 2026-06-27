@@ -21,14 +21,18 @@ Map these into the 5-step [Brev Launchable](https://docs.nvidia.com/brev/concept
 ### 3. Jupyter & Networking — expose ports
 | Port | Purpose |
 |------|---------|
+| 3000 | **Workshop website** — start here; includes the interactive guide and live shell. |
 | 30789 | **OpenClaw UI** — the agent (served at `/`). Main user-facing port. |
 | 30900 | **OpenShift console** — served at `/console/`. |
+| 30808 | OpenShell gateway NodePort — used by the workshop shell's `openshell` CLI. |
+| 30030 | Grafana — optional, only useful if `DEPLOY_MONITORING=true`. |
 | 9443 | MicroShift router HTTPS (Routes, e.g. OpenShell gateway) |
 | 9080 | MicroShift router HTTP |
 | 6443 | MicroShift API server (optional, for `oc` from outside) |
 
-`30789`/`30900` are host NodePorts published by phase 50's systemd forwarder — these are
-what attendees actually open via their Brev URL. Jupyter: optional/off.
+`30789`/`30900`/`30808`/`30030` are host NodePorts published by phase 50's systemd forwarder.
+Attendees normally open `3000` first, then use the Brev URLs for `30789` and `30900` when the
+guide asks. Jupyter: optional/off.
 
 ### 4. Compute
 - **GPU:** none — inference is a remote endpoint.
@@ -45,6 +49,7 @@ what attendees actually open via their Brev URL. Jupyter: optional/off.
   | `NEMOCLAW_API_KEY` | **mark as secret** |
   | `CONTAINER_ENGINE` | `podman` (required) |
   | `OPENCLAW_GATEWAY_PASSWORD` | Control-UI login password (default `openclaw`) — what attendees type |
+  | `NODEPORT_FORWARDS` | `30789 30900 30808 30030` so the UI, console, CLI gateway, and optional Grafana are reachable |
   | `DEPLOY_CONSOLE` | `true` (default) deploys the OpenShift console; `false` skips phase 60 |
   | `OPENCLAW_OPEN_SANDBOX` | optional; `true` skips the deny-by-default NetworkPolicy |
 - **Policy & manifests** ship in the repo — applied automatically by `setup.sh`; no UI input.

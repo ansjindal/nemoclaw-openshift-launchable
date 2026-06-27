@@ -19,7 +19,9 @@ network_policies:
         enforcement: enforce
     binaries:
       - /usr/bin/node
+      - /usr/local/bin/node
       - /usr/bin/python*
+      - /usr/local/bin/python*
     rules:
       - method: POST
         path: /v1/**
@@ -33,6 +35,7 @@ network_policies:
         enforcement: enforce
     binaries:
       - /usr/bin/node
+      - /usr/local/bin/node
     rules:
       - method: GET
         path: /**
@@ -50,6 +53,7 @@ network_policies:
         enforcement: enforce
     binaries:
       - /usr/bin/node
+      - /usr/local/bin/node
     rules:
       - method: GET
         path: /**
@@ -63,7 +67,9 @@ network_policies:
         access: full          # L4 tunnel — package managers need raw TLS, not L7 inspection
     binaries:
       - /usr/bin/npm
+      - /usr/local/bin/npm
       - /usr/bin/node
+      - /usr/local/bin/node
 
   # --- balanced preset: PyPI ---
   - name: pypi
@@ -78,7 +84,9 @@ network_policies:
         access: full
     binaries:
       - /usr/bin/pip*
+      - /usr/local/bin/pip*
       - /usr/bin/python*
+      - /usr/local/bin/python*
 
   # --- balanced preset: Hugging Face (read-only model/dataset pulls) ---
   - name: huggingface
@@ -89,6 +97,7 @@ network_policies:
         enforcement: enforce
     binaries:
       - /usr/bin/python*
+      - /usr/local/bin/python*
     rules:
       - method: GET
         path: /**
@@ -108,8 +117,12 @@ process:
   # Only these executables may run inside the sandbox.
   allowed_binaries:
     - /usr/bin/node
+    - /usr/local/bin/node
     - /usr/bin/npm
+    - /usr/local/bin/npm
     - /usr/bin/python*
+    - /usr/local/bin/python*
     - /usr/bin/pip*
+    - /usr/local/bin/pip*
     - /bin/sh
     - /bin/bash

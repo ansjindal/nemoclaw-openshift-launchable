@@ -32,7 +32,7 @@ export function StackDiagram() {
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" fontFamily={C.font} role="img" aria-label="Workshop architecture stack">
         <defs><marker id="sd_ar" markerWidth="10" markerHeight="10" refX="7" refY="3.2" orient="auto"><path d="M0,0 L8,3.2 L0,6.4 Z" fill={C.ink} /></marker></defs>
         <rect x={0} y={0} width={W} height={H} fill={C.bg} />
-        <Layer y={28} h={62} fill={C.gray} stroke={C.ctrl} n={1} title="NVIDIA Brev — Ubuntu VM" sub="1 CPU · no GPU · no nested virt · your free credits" badge="NVIDIA Brev" badgeColor={C.nvidia} />
+        <Layer y={28} h={62} fill={C.gray} stroke={C.ctrl} n={1} title="NVIDIA Brev — Ubuntu VM" sub="CPU VM · no GPU · no nested virt · your free credits" badge="NVIDIA Brev" badgeColor={C.nvidia} />
         <Arrow y={90} />
         <Layer y={106} h={58} fill={C.blue} stroke="#6f8fd0" n={2} title="podman" sub="runs MicroShift as a container (MINC)" />
         <Arrow y={164} />

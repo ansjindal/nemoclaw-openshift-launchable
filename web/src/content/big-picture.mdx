@@ -4,10 +4,10 @@ The workshop stack is a stack of stacks. From the bottom up, each layer hands a 
 
 ## Reading the stack
 
-1. **NVIDIA Brev** — a plain Ubuntu VM (1 CPU, no GPU). Just a Linux box.
+1. **NVIDIA Brev** — a plain Ubuntu CPU VM (no GPU). Just a Linux box.
 2. **podman** — runs containers; we run a whole Kubernetes control plane *as a container*.
 3. **MicroShift** — Red Hat's single-node OpenShift, packaged to run inside that container (the “MINC” build). Real OpenShift APIs + `oc`, no bare metal.
-4. **OpenShell** (NVIDIA) — the sandbox control plane; turns each agent request into an isolated, policy-bound pod.
+4. **OpenShell** (NVIDIA) — the sandbox control plane; gateway-created agents become isolated, policy-bound pods.
 5. **OpenClaw** — the agent (“Shifty 🦞”) running in a sandbox, with a web control UI.
 6. **Remote inference** — the agent calls an OpenAI-compatible model endpoint for its thinking.
 

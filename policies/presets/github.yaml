@@ -14,7 +14,9 @@ network_policies:
         access: full          # git clone over HTTPS needs raw TLS
     binaries:
       - /usr/bin/git
+      - /usr/local/bin/git
       - /usr/bin/node
+      - /usr/local/bin/node
     rules:
       - method: GET
         path: /**

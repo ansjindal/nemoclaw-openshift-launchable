@@ -44,7 +44,7 @@ const NODES: Record<string, N> = {
     ours: <>Created by <code>openshell sandbox create</code> in the <code>openshell</code> namespace, on the community OpenClaw sandbox image.</> },
   guard: { id: "guard", label: "Network Guardrail + Privacy Router", sub: "egress + inference.local", color: AMBER,
     what: <>Every outbound connection is checked (deny-by-default, per-binary). The privacy router sends <code>inference.local</code> to a model proxy (LiteLLM), stripping creds + injecting the real key.</>,
-    ours: <>Routes <code>inference.local</code> to a <strong>remote OpenAI-compatible endpoint</strong> (no local GPU). The agent never holds the upstream key.</> },
+    ours: <>For gateway-created sandboxes, routes <code>inference.local</code> to a <strong>remote OpenAI-compatible endpoint</strong> (no local GPU). The prebuilt Shifty pod uses direct OpenClaw provider config from a Secret.</> },
   addons: { id: "addons", label: "Optional add-ons", sub: "Envoy · cert-manager · LB · GPU", color: SLATE,
     what: <>Envoy Gateway (Gateway API + GRPCRoute), cert-manager (auto cert rotation), a LoadBalancer Service (external addr + SSH relay), and a GPU device plugin (for GPU sandboxes).</>,
     ours: <>None enabled — single-node, NodePort, CPU-only. The optional monitoring phase adds Prometheus/Grafana/Loki/Tempo.</> },
