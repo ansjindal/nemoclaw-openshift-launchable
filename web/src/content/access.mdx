@@ -18,7 +18,7 @@ curl -s -o /dev/null -w "OpenClaw UI: HTTP %{http_code}\n" http://127.0.0.1:1878
 `HTTP 200` means the bridge is live: host `:18789` → gateway → supervisor → the agent's UI.
 
 <Callout type="note" title="Why not a NodePort like the gateway?">
-The OpenShell <em>gateway</em> is a normal Service, so Envoy/NodePort fronts it. A <em>sandbox</em> is network-sealed — its listening port lives in a private namespace, so only <code>openshell forward</code> (which tunnels <em>through</em> the gateway + supervisor) can reach it. Stop it later with <code>openshell forward stop</code>; one forward per port.
+The OpenShell <em>gateway</em> is a normal Service, so a NodePort fronts it. A <em>sandbox</em> is network-sealed — its listening port lives in a private namespace, so only <code>openshell forward</code> (which tunnels <em>through</em> the gateway + supervisor) can reach it. Stop it later with <code>openshell forward stop</code>; one forward per port.
 </Callout>
 
 ## Open it in your browser

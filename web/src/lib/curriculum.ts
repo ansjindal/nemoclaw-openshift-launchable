@@ -22,8 +22,7 @@ export const CURRICULUM: Part[] = [
       { slug: "big-picture", title: "The Big Picture", blurb: "Brev → podman → MicroShift/OpenShift → OpenShell gateway → Envoy → your agent.", minutes: 8 },
       { slug: "why-openshift", title: "Why OpenShift (and MicroShift)", blurb: "Red Hat's enterprise Kubernetes, container-sized — and why it's the base.", minutes: 7 },
       { slug: "the-cluster", title: "Your Cluster, Already Up", blurb: "How MicroShift-in-podman was stood up — and inspect it live with oc.", minutes: 8, hasLab: true },
-      { slug: "openshell", title: "The OpenShell Gateway", blurb: "The agent control plane: agent-sandbox CRD + the Helm chart + the compute driver.", minutes: 9, hasLab: true },
-      { slug: "ingress", title: "Exposing It: Envoy Gateway", blurb: "The standard OpenShell ingress — Gateway API + Envoy, and how we reach it here.", minutes: 7, hasLab: true },
+      { slug: "openshell", title: "The OpenShell Gateway", blurb: "The agent control plane: agent-sandbox CRD + the Helm chart + the compute driver — and how you reach it.", minutes: 9, hasLab: true },
     ],
   },
   {

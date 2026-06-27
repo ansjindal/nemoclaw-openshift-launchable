@@ -47,7 +47,7 @@ oc api-resources | grep -iE "route.openshift.io|security.openshift.io" | head
 `SecurityContextConstraints` and `route.openshift.io` are OpenShift extensions a vanilla Kubernetes cluster doesn't have. That's the Red Hat layer your agents run on.
 
 <Callout type="tip" title="Why a container, not a VM-per-node">
-MINC makes the whole cluster a single disposable container — fast to boot on a Brev instance, and it still exercises the real OpenShift admission + SCC path your agents must satisfy. The trade-off (no cloud LoadBalancer) is why we expose things with a host forwarder — see the next two lessons.
+MINC makes the whole cluster a single disposable container — fast to boot on a Brev instance, and it still exercises the real OpenShift admission + SCC path your agents must satisfy. The trade-off (no cloud LoadBalancer) is why we reach in-cluster services through a host forwarder + NodePort — the next lesson shows how that works for the gateway.
 </Callout>
 
 <Callout type="rh" title="The base is done">

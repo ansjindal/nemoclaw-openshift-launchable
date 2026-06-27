@@ -41,7 +41,7 @@ Every sandbox is bounded at five independent layers — some locked at creation,
 | **Inference** | credential exposure | privacy router intercepts `inference.local` | ✅ `openshell inference set` |
 | **Gateway** | unauth access, transport tampering | mTLS + token auth (cluster CA) | config |
 
-That's the defense-in-depth for OpenShell-governed sandboxes: even a fully prompt-injected agent is boxed in by the kernel and the proxy, not by a prompt. Shifty separately demonstrates the OpenShift-native half of the same story: SCC, pod security settings, and Kubernetes NetworkPolicy.
+That's the defense-in-depth for OpenShell-governed sandboxes: even a fully prompt-injected agent is boxed in by the kernel and the proxy, not by a prompt. On top, OpenShift contributes its own half of the story — SCCs, pod security settings, and NetworkPolicy — the cluster-native guardrails every sandbox inherits.
 
 <Callout type="note" title="Where our instance simplifies">
 Single-node, CPU-only, NodePort instead of Envoy/LoadBalancer, remote inference instead of a local model, and unauthenticated CLI instead of OIDC. The <em>shape</em> is identical to the production diagram — fewer optional add-ons.
@@ -55,18 +55,24 @@ The bottom layer is community Kubernetes, not NVIDIA-specific: the `Sandbox` CRD
 We pin agent-sandbox to <strong>v0.4.6</strong> (the last <code>v1alpha1</code>-only release). The gateway 0.0.70 verifies a sandbox pod is owned by a <code>v1alpha1</code> Sandbox; agent-sandbox v0.5.0 switched to <code>v1beta1</code> ownerReferences, which the gateway rejects — so gateway-driven sandboxes would crash-loop. Pinning v0.4.6 is what makes <code>openshell sandbox create</code> reach <code>Ready</code> on MicroShift.
 </Callout>
 
-## Managing the fleet: a web console
+## How you reach the gateway
 
-The gateway is gRPC, so anything that speaks it can drive the fleet. Beyond the `openshell` CLI, there's a **companion open-source web console** (`openshell-ui`) — a separate project, not part of core OpenShell — that signs in with OIDC and talks to the gateway over gRPC to give role-aware admin/user views: sandboxes, per-sandbox **policy**, a live **network** egress feed (ALLOW/DENY), a policy-advisor inbox, and interactive terminals.
+Inside the cluster the gateway is `svc/openshell:8080`. But your workshop shell runs on the **VM, outside the cluster** — so the Helm chart exposes the gateway as a **NodePort** (`30808`), and a tiny `socat` systemd unit republishes that NodePort on the VM's own `127.0.0.1:30808`. The CLI is registered against that:
 
-It's **shown right here in the workshop** (the panel below is a faithful in-page preview — no extra component is deployed); point the real console at any OpenShell gateway when you want the full thing.
+```bash
+openshell status
+```
 
-<OpenShellConsole />
+<Callout type="note" title="Why it says http://127.0.0.1:30808">
+That endpoint is local <em>to the VM</em> — not because the gateway is local, but because the host forwarder bridges <code>127.0.0.1:30808</code> → the in-cluster NodePort → <code>svc/openshell</code>. Production swaps this NodePort + forwarder for an ingress + hostname (Gateway API / Envoy); the <code>openshell</code> commands are identical either way.
+</Callout>
+
+Because the gateway is just gRPC, *anything* that speaks it can drive the fleet — the `openshell` CLI you'll use, the companion `openshell-ui` web console, or live panels wired straight into this workshop site from the gateway API.
 
 <Callout type="note" title="Two things both called &quot;gateway&quot;">
-You'll hear "gateway" twice: the <strong>OpenShell gateway</strong> (control plane, :8080) and the <strong>OpenClaw gateway</strong> (the agent's own control UI, :18789). Different things — keep them straight.
+You'll hear "gateway" twice: the <strong>OpenShell gateway</strong> (control plane, :30808 → :8080) and the <strong>OpenClaw gateway</strong> (the agent's own control UI, :18789). Different things — keep them straight.
 </Callout>
 
 <Callout type="rh" title="What this launchable exercises">
-You'll drive the <strong>gateway</strong> for real: <code>openshell sandbox create</code> mints an identity, writes a <code>Sandbox</code> CR, the controller reconciles a Pod, and the <strong>supervisor</strong> sideloads + connects back — all the way to <code>Ready</code>. Shifty uses a direct OpenClaw provider config; gateway-created sandboxes can use the OpenShell inference router. The next lessons run these paths end to end.
+You'll drive the <strong>gateway</strong> for real: <code>openshell sandbox create</code> mints an identity, writes a <code>Sandbox</code> CR, the controller reconciles a Pod, and the <strong>supervisor</strong> sideloads + connects back — all the way to <code>Ready</code>. Your agent uses a direct OpenClaw provider config; gateway-created sandboxes can alternatively use the OpenShell inference router. The next lessons run these paths end to end.
 </Callout>

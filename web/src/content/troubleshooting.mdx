@@ -19,7 +19,7 @@ sudo ss -ltnp | grep -E ':30900|:30808'
 sudo systemctl restart minc-nodeport-forward.service
 ```
 
-If `openshell sandbox list` cannot connect from the lab shell, check the gateway port `30808` (Envoy NodePort):
+If `openshell sandbox list` cannot connect from the lab shell, check the gateway's NodePort `30808`:
 
 ```bash
 sudo ss -ltnp | grep ':30808'

@@ -4,13 +4,15 @@
 # via the agent-sandbox CRD). These overrides let OpenShift's SCC assign UID/fsGroup from the
 # namespace range instead of the chart's hardcoded 1000 — the supported OpenShift posture.
 
-# The gateway Service is ClusterIP — Envoy Gateway (Gateway API) fronts it as the
-# standard ingress. The EnvoyProxy resource pins Envoy's gRPC listener to NodePort
-# 30808 (manifests/openshell/envoy-gateway.yaml); phase 50's socat forwarder publishes
-# 30808 on the host and phase 70 registers the CLI against http://127.0.0.1:30808.
+# Expose the gateway on a stable NodePort so the in-VM workshop shell's `openshell` CLI
+# has a fixed endpoint (it reconnects per command; `kubectl port-forward` isn't stable).
+# Phase 50's socat forwarder publishes 30808 on the host; phase 70 registers the CLI
+# against http://127.0.0.1:30808. (Single-node = NodePort; production would front it
+# with an ingress / Gateway API + TLS instead.)
 service:
-  type: ClusterIP
+  type: NodePort
   port: 8080
+  nodePort: 30808
 
 server:
   # TLS terminated at the edge (Route); gateway listens plaintext in-cluster.

@@ -18,9 +18,9 @@ const NODES: Record<string, N> = {
   oidc: { id: "oidc", label: "OIDC Identity Provider", sub: "Keycloak / Entra ID", color: AMBER,
     what: <>Issues JWTs with role claims so the gateway can do per-method authorization (admin vs read-only user). Powers the OpenShell Console login.</>,
     ours: <>Disabled for the workshop — the gateway runs with <code>allowUnauthenticatedUsers</code> so the CLI works with no SSO. Add Keycloak for multi-tenant.</> },
-  grpcroute: { id: "grpcroute", label: "GRPCRoute / Service", sub: "ClusterIP :8080", color: BLUE,
-    what: <>Inbound gRPC reaches the gateway through a Service (and, with Gateway API, a GRPCRoute on an Envoy Gateway for edge TLS + path routing).</>,
-    ours: <>A plain Service, exposed as NodePort <code>30808</code> and host-forwarded so the in-VM shell can reach it. (No Envoy — that's an optional add-on.)</> },
+  grpcroute: { id: "grpcroute", label: "Service", sub: "NodePort 30808 → :8080", color: BLUE,
+    what: <>Inbound gRPC reaches the gateway through a Kubernetes <strong>Service</strong>. In production you'd front it with an ingress (Gateway API / Envoy) for a hostname + TLS; on a single node a NodePort is enough.</>,
+    ours: <>A <strong>NodePort</strong> Service on <code>30808</code>, host-forwarded by a systemd <code>socat</code> unit so the in-VM shell's <code>openshell</code> CLI reaches it at <code>127.0.0.1:30808</code>.</> },
   gw: { id: "gw", label: "Gateway StatefulSet", sub: "API · state · policy · inference", color: NV,
     what: <>The control plane. Serves the gRPC API, stores provider creds, delivers policy, hosts the inference router, and <strong>authenticates each sandbox's supervisor over mTLS</strong>. StatefulSet on SQLite (or HA Deployment on Postgres).</>,
     ours: <>StatefulSet <code>openshell</code> (SQLite), image <code>gateway:0.0.70</code>, <code>disableTls</code> for simplicity. Its Kubernetes compute driver watches the Sandbox CRD.</> },
@@ -44,7 +44,7 @@ const NODES: Record<string, N> = {
     ours: <>Created by <code>openshell sandbox create</code> in the <code>openshell</code> namespace, on the community OpenClaw sandbox image.</> },
   guard: { id: "guard", label: "Network Guardrail + Privacy Router", sub: "egress + inference.local", color: AMBER,
     what: <>Every outbound connection is checked (deny-by-default, per-binary). The privacy router sends <code>inference.local</code> to a model proxy (LiteLLM), stripping creds + injecting the real key.</>,
-    ours: <>For gateway-created sandboxes, routes <code>inference.local</code> to a <strong>remote OpenAI-compatible endpoint</strong> (no local GPU). The prebuilt Shifty pod uses direct OpenClaw provider config from a Secret.</> },
+    ours: <>Your agent uses a <strong>direct OpenClaw provider config</strong> (<code>openclaw.json</code>) pointed at a remote OpenAI-compatible endpoint (no local GPU) — the policy allows egress only to that host.</> },
   addons: { id: "addons", label: "Optional add-ons", sub: "Envoy · cert-manager · LB · GPU", color: SLATE,
     what: <>Envoy Gateway (Gateway API + GRPCRoute), cert-manager (auto cert rotation), a LoadBalancer Service (external addr + SSH relay), and a GPU device plugin (for GPU sandboxes).</>,
     ours: <>None enabled — single-node, NodePort, CPU-only. The optional monitoring phase adds Prometheus/Grafana/Loki/Tempo.</> },
@@ -86,12 +86,11 @@ export function OpenShellOnK8s() {
             <div className="mb-1 text-[10px] font-bold" style={{ color: NV }}>namespace: openshell</div>
             <div className="mb-2"><Chip id="grpcroute" /></div>
             <div className="mb-2"><Chip id="gw" /></div>
-            <div className="grid grid-cols-4 gap-1.5"><Chip id="pvc" /><Chip id="secrets" /><Chip id="rbac" /><Chip id="pki" /></div>
+            <div className="mb-2 grid grid-cols-4 gap-1.5"><Chip id="pvc" /><Chip id="secrets" /><Chip id="rbac" /><Chip id="pki" /></div>
+            {/* sandboxes land in the SAME namespace as the gateway (sandboxNamespace: "") */}
+            <Chip id="pod" />
           </div>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <Box title="agent-sandbox-system"><Chip id="ctrl" /></Box>
-            <Box title="namespace: sandboxes"><Chip id="pod" /></Box>
-          </div>
+          <div className="mt-2"><Box title="agent-sandbox-system"><Chip id="ctrl" /></Box></div>
           <div className="mt-2"><Chip id="guard" /></div>
         </div>
         {/* add-ons */}

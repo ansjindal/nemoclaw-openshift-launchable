@@ -72,29 +72,13 @@ oc -n "$NS" rollout restart statefulset/openshell 2>/dev/null || true
 log "Waiting for the gateway StatefulSet to become ready"
 oc -n "$NS" rollout status statefulset/openshell --timeout=300s || oc -n "$NS" get pods
 
-# --- Expose the gateway via Envoy Gateway (Gateway API) — the standard OpenShell ingress.
-# On MicroShift-in-podman there is no cloud LoadBalancer, so the EnvoyProxy resource pins
-# the proxy Service to NodePort 30808 (phase 50 forwards it to the host). On OpenShift the
-# envoy-gateway-system SA group needs anyuid+privileged SCC or the certgen pre-install hook
-# times out ("failed pre-install: timed out waiting for the condition").
-EG_NS="envoy-gateway-system"
-EG_VERSION="${ENVOY_GATEWAY_VERSION:-v1.8.1}"
-log "Granting SCC to the ${EG_NS} SA group (so Envoy's certgen hook can schedule)"
-oc create namespace "$EG_NS" --dry-run=client -o yaml | oc apply -f - >/dev/null
-oc adm policy add-scc-to-group anyuid "system:serviceaccounts:${EG_NS}" 2>/dev/null || true
-oc adm policy add-scc-to-group privileged "system:serviceaccounts:${EG_NS}" 2>/dev/null || true
-log "Installing Envoy Gateway (${EG_VERSION})"
-helm upgrade --install eg oci://docker.io/envoyproxy/gateway-helm --version "$EG_VERSION" \
-  --namespace "$EG_NS" --wait --timeout 10m \
-  || warn "Envoy Gateway install reported an error — check 'oc -n ${EG_NS} get pods'."
-oc -n "$EG_NS" rollout status deploy/envoy-gateway --timeout=180s || true
-log "Applying Gateway API resources (EnvoyProxy/GatewayClass/Gateway/GRPCRoute)"
-oc apply -f "$REPO_ROOT/manifests/openshell/envoy-gateway.yaml"
-# Also keep the OpenShift Route (DNS-capable alternative to the NodePort path).
+# Expose the gateway. Single node = NodePort (the Service pins 30808; phase 50's socat
+# forwarder publishes it on the host so the `openshell` CLI reaches 127.0.0.1:30808).
+# Also publish an OpenShift Route as a DNS-capable alternative.
+log "Exposing the gateway (NodePort 30808 + an OpenShift Route)"
 oc apply -f "$REPO_ROOT/manifests/openshell-route.yaml" 2>/dev/null || true
 ROUTE_HOST="$(oc -n "$NS" get route openshell-gateway -o jsonpath='{.spec.host}' 2>/dev/null || true)"
 [[ -n "$ROUTE_HOST" ]] && log "Gateway Route: https://${ROUTE_HOST}"
-log "Gateway via Envoy: host NodePort 30808 (phase 50) -> Envoy -> svc/openshell:8080"
 
 log "OpenShell gateway deployed:"
 oc -n "$NS" get pods,svc,route
