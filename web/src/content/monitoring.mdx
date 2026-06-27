@@ -27,7 +27,7 @@ This stack provisions with the platform. On a very small instance you can opt ou
 
 ## Watch the fleet
 
-Open the **OpenShell Agent Fleet** dashboard in Grafana. As you create more sandboxes (Part V's multi-agent app), each shows up here — CPU, memory, restarts per agent pod — plus the gateway's own health. This is your operator view of the whole agent fleet on one screen.
+Open the **OpenShell Agent Fleet** dashboard in Grafana. As you create more sandboxes (Part VI's multi-agent app), each shows up here — CPU, memory, restarts per agent pod — plus the gateway's own health. This is your operator view of the whole agent fleet on one screen.
 
 <Callout type="note" title="Why the agents can't read Prometheus themselves">
 Prometheus lives <em>in-cluster</em> (a <code>10.43.*</code> ClusterIP). A gateway sandbox is network-sealed and only egresses to the <strong>external</strong> hosts its policy allows — it can't reach in-cluster services (that's the same isolation that keeps it off the Kubernetes API). Observability here is for <em>you</em>; if you want an agent to reason over metrics, expose a metrics API <em>externally</em> and allow that host in its policy.
