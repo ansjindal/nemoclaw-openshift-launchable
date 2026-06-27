@@ -32,7 +32,7 @@ This is the command you asked about — list every sandbox across the cluster:
 oc get sandboxes -A
 ```
 
-It's **empty for now** — you create your first agent in Part IV. The point is the *shape*: every agent the gateway makes shows up here as a `Sandbox` CR you can inspect with plain `oc` (`oc -n openshell describe sandbox <name>`). That's the whole API surface — a Kubernetes object.
+If you haven't created an agent yet it's **empty** — you build your first in Part IV (an agent like `shifty` only shows here once it exists). The point is the *shape*: every agent the gateway makes shows up here as a `Sandbox` CR you can inspect with plain `oc` (`oc -n openshell describe sandbox <name>`). That's the whole API surface — a Kubernetes object.
 
 ## Policies — what a gateway sandbox may do
 
