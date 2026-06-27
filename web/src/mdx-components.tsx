@@ -10,6 +10,7 @@ import { OpenShellRuntime } from "@/components/diagrams/OpenShellRuntime";
 import { DeployTopology } from "@/components/diagrams/DeployTopology";
 import { OpenShellOnK8s } from "@/components/diagrams/OpenShellOnK8s";
 import { OpenShellConsole } from "@/components/diagrams/OpenShellConsole";
+import { PolicyExplorer } from "@/components/diagrams/PolicyExplorer";
 import { SandboxFlow } from "@/components/diagrams/SandboxFlow";
 import { SecurityLayers } from "@/components/diagrams/SecurityLayers";
 
@@ -24,6 +25,7 @@ const components: MDXComponents = {
   DeployTopology,
   OpenShellOnK8s,
   OpenShellConsole,
+  PolicyExplorer,
   SandboxFlow,
   SecurityLayers,
   pre: CodeBlock, // every fenced code block gets a Copy / Run-in-shell toolbar

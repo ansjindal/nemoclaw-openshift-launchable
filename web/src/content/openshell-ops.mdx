@@ -40,20 +40,35 @@ oc -n openclaw describe sandbox openclaw-sandbox | head -40
 
 ## Policies — what a sandbox may do
 
-Two layers bound a sandbox:
+A sandbox policy is **one YAML file with two halves**: a *dynamic* network section that hot-reloads on a running sandbox, and *static* filesystem + process sections locked in at creation and enforced in the kernel. Click through each part:
 
-**L4 network (applied)** — a deny-by-default NetworkPolicy:
+<PolicyExplorer />
+
+Every section maps to a real enforcement point — nothing here is advisory:
+
+| Layer | Protects against | Enforced by | Runtime change? |
+| --- | --- | --- | --- |
+| `network_policies` | egress / data exfiltration | CONNECT proxy + OPA, per-binary | ✅ hot-reload |
+| `filesystem` | binary tampering, cred theft | **Landlock LSM** (kernel) | ❌ recreate |
+| `process` | priv-esc, fork bombs, bad syscalls | **seccomp-BPF** + privilege drop | ❌ recreate |
+
+### See it on your cluster
+
+The repo ships Shifty's policy (deny-by-default, balanced tier). Read the real file:
+
+```bash
+sed -n '1,45p' ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml
+```
+
+And the OpenShift-level backstop — a deny-by-default `NetworkPolicy` on the pod (defense-in-depth *under* the OpenShell proxy):
 
 ```bash
 oc -n openclaw get networkpolicy
-oc -n openclaw describe networkpolicy openclaw-deny-by-default | head -30
 ```
 
-**L7 (OpenShell policy schema)** — the per-binary/method/path rules in the repo's `policies/` (deny-by-default, balanced tier), enforced when the agent runs under OpenShell's policy engine:
-
-```bash
-sed -n '1,40p' ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml
-```
+<Callout type="tip" title="The iterate loop">
+Start a sandbox in <strong>audit</strong> mode (violations logged, not blocked), watch <code>openshell logs &lt;name&gt;</code> for denials, add the endpoints you actually need to <code>network_policies</code>, then flip to <strong>enforce</strong>. Tighten without downtime — network rules hot-reload.
+</Callout>
 
 <Callout type="note" title="Who reconciles the sandbox?">
 The agent-sandbox <strong>controller</strong> (installed with OpenShell in phase 30) turns the <code>Sandbox</code> CR into a real pod, under the namespace's RBAC + Security Context Constraints. OpenShell is the broader control plane / supervisor for sandboxes.
