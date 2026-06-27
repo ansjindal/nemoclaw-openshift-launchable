@@ -1,0 +1,60 @@
+Your agent needs a **brain** — somewhere to send its thinking. There's no GPU on this box, so we use a **remote, OpenAI-compatible inference endpoint**. You provide three things once, and every later step reads them:
+
+- **Base URL** — the endpoint, ending in `/v1` (e.g. `https://integrate.api.nvidia.com/v1`)
+- **Model** — the model id to use (e.g. `nvidia/llama-3.3-nemotron-super-49b-v1`)
+- **API key** — your provider key (e.g. an `nvapi-…` key from [build.nvidia.com](https://build.nvidia.com))
+
+<Callout type="note" title="Why now, before you build">
+The **base URL's host** becomes part of your agent's egress <strong>policy</strong> in the next lesson — a sealed agent may only reach hosts you allowed. So we set inference <em>first</em>, then build the agent around it.
+</Callout>
+
+## Step 1 — Put your values in `.env`
+
+Open the launchable's `.env` in an editor:
+
+```bash
+cd ~/nemoclaw-openshift-launchable
+nano .env        # or: vi .env
+```
+
+Set these three lines (replace the values with your own):
+
+```bash
+NEMOCLAW_INFERENCE_BASE_URL=https://integrate.api.nvidia.com/v1
+NEMOCLAW_MODEL=nvidia/llama-3.3-nemotron-super-49b-v1
+NEMOCLAW_API_KEY=nvapi-your-key-here
+```
+
+Save and exit (in `nano`: <kbd>Ctrl-O</kbd>, <kbd>Enter</kbd>, <kbd>Ctrl-X</kbd>).
+
+## Step 2 — Load them into your shell
+
+```bash
+cd ~/nemoclaw-openshift-launchable
+set -a; . .env; set +a
+echo "URL=$NEMOCLAW_INFERENCE_BASE_URL  MODEL=$NEMOCLAW_MODEL  KEY=${NEMOCLAW_API_KEY:0:6}…"
+```
+
+You should see your URL and model, and the key's first few characters (we don't print the whole key).
+
+## Step 3 — Verify the endpoint actually works
+
+Ask the endpoint what models it serves — the standard OpenAI-compatible `/v1/models` call, authenticated with your key:
+
+```bash
+curl -sS "$NEMOCLAW_INFERENCE_BASE_URL/models" -H "Authorization: Bearer $NEMOCLAW_API_KEY" | head -c 600; echo
+```
+
+A JSON list of models (look for `"object": "list"` and model `"id"`s) means your **endpoint + key are good**. Confirm your chosen model is in the list:
+
+```bash
+curl -sS "$NEMOCLAW_INFERENCE_BASE_URL/models" -H "Authorization: Bearer $NEMOCLAW_API_KEY" | grep -o "\"id\":\"[^\"]*\"" | head -20
+```
+
+<Callout type="warn" title="If it fails">
+<strong>401 / Unauthorized</strong> → wrong or expired key. <strong>404</strong> → the base URL probably shouldn't (or should) end in <code>/v1</code> — match your provider's docs. <strong>Connection error</strong> → check the host name. Fix <code>.env</code> and re-run Step 2 + 3 before moving on.
+</Callout>
+
+<Callout type="rh" title="Brain confirmed">
+Endpoint reachable, key valid, model present. Those three values are now in <code>.env</code> — the next lessons read them to build your agent's <strong>policy</strong> (the host) and its <strong>model config</strong> (the model + key). On to creating the agent.
+</Callout>

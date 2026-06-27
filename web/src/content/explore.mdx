@@ -1,6 +1,6 @@
-You've created a sandbox and exec'd into it. Now **play with the whole control plane like an operator** — observe it, govern it, expose it — using the `openshell` CLI. By the end you'll have touched every part of OpenShell. (All of this runs in the lab shell against your live gateway.)
+You understand the pieces — now **play with the whole control plane like an operator** before you build for real: observe it, govern it, expose it, using the `openshell` CLI. We'll create a **throwaway sandbox** just to poke at (no OpenClaw, no model — that's Part IV). By the end you'll have touched every part of OpenShell. (All of this runs in the lab shell against your live gateway.)
 
-Spin a throwaway sandbox to poke at:
+Spin up the throwaway sandbox:
 
 ```bash
 openshell sandbox create --name lab -- sh -c 'sleep 1800'
@@ -75,7 +75,7 @@ openshell service list           # exposed sandbox services
 openshell forward list           # active port-forwards
 ```
 
-(You'll use `openshell forward start` for real in *Demo Your Copilot*.)
+(You'll use `openshell forward start` for real in *Open the Agent UI* to expose your agent's Control UI.)
 
 ## Clean up
 

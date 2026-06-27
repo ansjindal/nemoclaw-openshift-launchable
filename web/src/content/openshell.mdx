@@ -67,7 +67,35 @@ openshell status
 That endpoint is local <em>to the VM</em> — not because the gateway is local, but because the host forwarder bridges <code>127.0.0.1:30808</code> → the in-cluster NodePort → <code>svc/openshell</code>. Production swaps this NodePort + forwarder for an ingress + hostname (Gateway API / Envoy); the <code>openshell</code> commands are identical either way.
 </Callout>
 
-Because the gateway is just gRPC, *anything* that speaks it can drive the fleet — the `openshell` CLI you'll use, the companion `openshell-ui` web console, or live panels wired straight into this workshop site from the gateway API.
+## Drive the gateway from the CLI
+
+`openshell status` is just the start. The CLI is how you'll do everything — see the verbs:
+
+```bash
+openshell --help
+```
+
+Run a full preflight (it checks the gateway, the compute driver, and the CRD are all healthy):
+
+```bash
+openshell doctor check
+```
+
+See which gateways the CLI knows about — you're pointed at the one we registered, `cluster`:
+
+```bash
+openshell gateway list
+```
+
+And list the agents running on it:
+
+```bash
+openshell sandbox list
+```
+
+It's **empty right now** — there are no agents yet. *You* create the first one in Part IV. Part III (next) goes deeper on the control plane and the policy model, with a throwaway sandbox to play on, so you understand every piece before you build for real.
+
+Because the gateway is just gRPC, *anything* that speaks it can drive the fleet — the `openshell` CLI you just used, the companion `openshell-ui` web console, or live panels wired straight into this workshop site from the gateway API.
 
 <Callout type="note" title="Two things both called &quot;gateway&quot;">
 You'll hear "gateway" twice: the <strong>OpenShell gateway</strong> (control plane, :30808 → :8080) and the <strong>OpenClaw gateway</strong> (the agent's own control UI, :18789). Different things — keep them straight.
