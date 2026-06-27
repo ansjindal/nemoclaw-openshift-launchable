@@ -1,21 +1,21 @@
-Your agent's Control UI is running on port `18789` — but **inside the sealed sandbox's private network namespace**. A NodePort can't reach it (that's the same isolation that protects the agent). The one thing that bridges into a sandbox is the gateway's own port-forward: `openshell forward`.
+Your agent's Control UI is running on port `30789` — but **inside the sealed sandbox's private network namespace**. A NodePort can't reach it (that's the same isolation that protects the agent). The one thing that bridges into a sandbox is the gateway's own port-forward: `openshell forward`.
 
 ## Expose the UI to the host
 
 Point `openshell forward` at your sandbox + the UI port, binding `0.0.0.0` so a Brev tunnel can reach it:
 
 ```bash
-openshell forward start 0.0.0.0:18789 shifty --background
+openshell forward start 0.0.0.0:30789 shifty --background
 openshell forward list
 ```
 
 Confirm it's serving on the host:
 
 ```bash
-curl -s -o /dev/null -w "OpenClaw UI: HTTP %{http_code}\n" http://127.0.0.1:18789/
+curl -s -o /dev/null -w "OpenClaw UI: HTTP %{http_code}\n" http://127.0.0.1:30789/
 ```
 
-`HTTP 200` means the bridge is live: host `:18789` → gateway → supervisor → the agent's UI.
+`HTTP 200` means the bridge is live: host `:30789` → gateway → supervisor → the agent's UI.
 
 <Callout type="note" title="Why not a NodePort like the gateway?">
 The OpenShell <em>gateway</em> is a normal Service, so a NodePort fronts it. A <em>sandbox</em> is network-sealed — its listening port lives in a private namespace, so only <code>openshell forward</code> (which tunnels <em>through</em> the gateway + supervisor) can reach it. Stop it later with <code>openshell forward stop</code>; one forward per port.

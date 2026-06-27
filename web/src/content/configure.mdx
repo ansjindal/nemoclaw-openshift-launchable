@@ -28,14 +28,14 @@ The agent is sealed under <strong>Landlock</strong> — it can only read <code>/
 
 ## 2. Start the OpenClaw gateway
 
-Launch it on port `18789` (LAN bind so we can expose it next), password auth:
+Launch it on port `30789` (LAN bind so we can expose it next), password auth:
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
-  'cd /sandbox && nohup openclaw gateway run --port 18789 --bind lan --auth password --password '"${PW:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 & sleep 6; tail -4 /sandbox/gateway.log'
+  'cd /sandbox && nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${PW:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 & sleep 6; tail -4 /sandbox/gateway.log'
 ```
 
-You're looking for `listening on ws://0.0.0.0:18789`. That's the agent's Control UI + WebSocket gateway, running inside the sealed sandbox.
+You're looking for `listening on ws://0.0.0.0:30789`. That's the agent's Control UI + WebSocket gateway, running inside the sealed sandbox.
 
 ## 3. Prove the brain works
 

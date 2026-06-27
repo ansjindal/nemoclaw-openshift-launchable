@@ -1,11 +1,11 @@
 The gotchas we hit so you don't have to. Most are handled by the scripts — here's what to check if something's off (run the checks in the shell).
 
-## Can't reach the agent UI on :18789
-The agent UI is bridged out of the sealed sandbox by `openshell forward` (the `openclaw-forward` systemd unit publishes host `:18789`). Check the forward and that the OpenClaw gateway is up inside the sandbox:
+## Can't reach the agent UI on :30789
+The agent UI is bridged out of the sealed sandbox by `openshell forward` (the `openclaw-forward` systemd unit publishes host `:30789`). Check the forward and that the OpenClaw gateway is up inside the sandbox:
 
 ```bash
 sudo systemctl status openclaw-forward.service
-sudo ss -ltnp | grep ':18789'
+sudo ss -ltnp | grep ':30789'
 openshell forward list
 openshell sandbox exec -n shifty -- sh -c 'tail -3 /sandbox/gateway.log'   # gateway listening?
 ```

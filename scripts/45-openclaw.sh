@@ -18,7 +18,7 @@ require_cmd oc
 
 NS="${OPENSHELL_NAMESPACE:-openshell}"
 AGENT="${OPENCLAW_AGENT_NAME:-shifty}"
-UI_PORT="${OPENCLAW_UI_PORT:-18789}"
+UI_PORT="${OPENCLAW_UI_PORT:-30789}"
 GW_PASSWORD="${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"
 SANDBOX_IMAGE="${OPENCLAW_SANDBOX_IMAGE:-ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest}"
 GW_URL="${OPENSHELL_CLI_ENDPOINT:-http://127.0.0.1:30808}"

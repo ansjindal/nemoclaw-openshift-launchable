@@ -40,7 +40,7 @@ export function StackDiagram() {
         <Arrow y={246} />
         <Layer y={262} h={66} fill={C.lav} stroke={C.auth} n={4} title="OpenShell gateway" sub="sandbox control plane · watches agent-sandbox CRD" badge="NVIDIA" badgeColor={C.nvidia} />
         <Arrow y={328} />
-        <Layer y={344} h={74} fill={C.greenTint} stroke={C.nvidia} n={5} title="OpenClaw sandbox — “Shifty” 🦞" sub="agent + control UI (:18789) · password auth · device pairing" />
+        <Layer y={344} h={74} fill={C.greenTint} stroke={C.nvidia} n={5} title="OpenClaw sandbox — “Shifty” 🦞" sub="agent + control UI (:30789) · password auth · device pairing" />
         <Arrow y={418} />
         <Layer y={434} h={58} fill={C.data} stroke={C.green} n={6} title="Remote inference endpoint" sub="OpenAI-compatible model (NVIDIA NIM) — agent calls out" badge="NVIDIA" badgeColor={C.nvidia} />
         <rect x={70} y={512} width={W - 140} height={78} rx={12} fill={C.white} stroke={C.border} strokeWidth={1.4} strokeDasharray="6 4" />
