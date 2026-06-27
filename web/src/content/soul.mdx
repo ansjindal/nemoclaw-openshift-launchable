@@ -103,11 +103,19 @@ These were placed by the launchable's <code>workspace-seed</code> (an initContai
 
 ## Make it yours
 
-The best way to edit them is to *ask the agent*. Open the OpenClaw UI and say:
+Two ways to change these files.
 
-> "Open your SOUL.md and add a rule: always show me the `oc` command before running it."
+**Now, from the shell (no model needed).** You can read — and write — them directly. The files exist the moment the pod starts:
 
-Shifty edits its own brain — that's the workspace-as-memory model. Or edit the seed files in the repo (`manifests/openclaw/workspace-seed/`) and redeploy for a new default.
+```bash
+oc -n openclaw exec openclaw-sandbox -c openclaw -- sh -c 'echo "- Always show the oc command before running it." >> /home/node/.openclaw/workspace/SOUL.md; tail -3 /home/node/.openclaw/workspace/SOUL.md'
+```
+
+**Later, by *asking the agent*** — the real workspace-as-memory move: open the OpenClaw UI and say *"Open your SOUL.md and add a rule: always show me the `oc` command before running it."* Shifty edits its own brain.
+
+<Callout type="warn" title="Asking the agent needs it online">
+For Shifty to act on that request it must be able to <strong>think</strong> — which means you've <strong>paired your browser</strong> and <strong>added a model</strong> (both back in <em>Part III · Deploy &amp; Activate</em>). If you skipped those, the shell-edit above works regardless, or change the seed defaults in <code>manifests/openclaw/workspace-seed/</code> and redeploy.
+</Callout>
 
 <Callout type="tip" title="Why this matters for the hackathon">
 Your Cluster Copilot's behavior lives in <code>SOUL.md</code>/<code>AGENTS.md</code>. Want it to always confirm writes, or prefer read-only <code>oc</code>? Write it there — in English.

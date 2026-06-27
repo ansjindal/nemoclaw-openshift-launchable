@@ -38,14 +38,16 @@ The `openshell-supervisor-install` init-container is the side-load step from the
 
 ## 3. Run something inside it
 
-It's a real, isolated sandbox. The reliable way to get a shell in is `oc exec` (the supervisor's own SSH relay is still settling on MicroShift — see the note):
+It's a real, isolated sandbox. Exec into it the **native** way — through the gateway, which relays the command to the sandbox's supervisor:
 
 ```bash
-oc -n openshell exec scout -c agent -- sh -c 'echo "hello from a gateway-built sandbox"; hostname; id'
+openshell sandbox exec -n scout -- sh -c 'echo "hello from a gateway-built sandbox"; hostname; id'
 ```
 
-<Callout type="note" title="oc exec vs openshell sandbox exec">
-<code>openshell sandbox exec</code> is the native interactive path (it relays an SSH session through the gateway). On this single-node MicroShift it's intermittent, so for the workshop we use <code>oc exec</code>, which is rock-solid. Both land you in the same container.
+That command never touched `oc` — the gateway brokered it end to end (mint identity → relay → run → stream back), which is the whole point of a control plane.
+
+<Callout type="note" title="oc exec also works">
+Since a sandbox is just a pod, <code>oc -n openshell exec scout -c agent -- …</code> reaches the same container via the Kubernetes API — handy when you want to bypass the gateway. Both land you in the same place.
 </Callout>
 
 ## 4. Give your sandbox an identity
