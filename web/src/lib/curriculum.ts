@@ -48,6 +48,7 @@ export const CURRICULUM: Part[] = [
       { slug: "into-the-sandbox", title: "Into a Sandbox", blurb: "A sandbox IS a pod — exec in and run the agent CLI (what the `openclaw` helper does).", minutes: 8, hasLab: true },
       { slug: "soul", title: "Meet Shifty: Identity & Soul", blurb: "The workspace .md files that ARE the agent’s memory and personality.", minutes: 8, hasLab: true },
       { slug: "create-sandbox", title: "Create a New Sandbox", blurb: "The full lifecycle via the gateway: openshell sandbox create → Ready → exec → delete.", minutes: 10, hasLab: true },
+      { slug: "explore", title: "Explore the Control Plane", blurb: "Play with every part: status, logs/audit, policy get & prove, inference, forward — by hand.", minutes: 12, hasLab: true },
     ],
   },
   {

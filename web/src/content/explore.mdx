@@ -1,0 +1,88 @@
+You've created a sandbox and exec'd into it. Now **play with the whole control plane like an operator** — observe it, govern it, expose it — using the `openshell` CLI. By the end you'll have touched every part of OpenShell. (All of this runs in the lab shell against your live gateway.)
+
+Spin a throwaway sandbox to poke at:
+
+```bash
+openshell sandbox create --name lab -- sh -c 'sleep 1800'
+openshell sandbox list
+```
+
+## 1. Is the gateway healthy?
+
+```bash
+openshell status
+```
+
+`Status: Connected` + a version is the control plane answering. And a deeper preflight:
+
+```bash
+openshell doctor check
+```
+
+## 2. Inspect a sandbox
+
+```bash
+openshell sandbox get lab
+```
+
+Note the **Phase**, the **Policy source** (sandbox vs gateway-global), and the **Revision** — every policy change bumps it. The effective policy is printed inline.
+
+## 3. The audit trail — `logs`
+
+This is OpenShell's observability: every gateway + sandbox action, structured. Watch the bootstrap you learned about actually happen:
+
+```bash
+openshell logs lab --source gateway
+```
+
+You'll see `minted sandbox JWT`, `Creating sandbox in Kubernetes`, `issued gateway sandbox JWT` — the exact handshake from the architecture lesson. Filter and stream:
+
+```bash
+openshell logs lab --source sandbox --level debug
+# live tail (Ctrl-C to stop):
+openshell logs lab --tail
+```
+
+<Callout type="note" title="This is the SIEM feed">
+Each entry is an OCSF-style security event. In production you stream these to your SIEM — every allow/deny, every policy change, every exec, attributable to a sandbox.
+</Callout>
+
+## 4. Govern it — `policy`
+
+See the effective policy, its history, and (the fun part) **prove** a property of it:
+
+```bash
+openshell policy get lab        # effective policy
+openshell policy list lab       # revision history
+```
+
+`openshell policy` also does `set` / `update` (hot-reload egress on a running sandbox — no restart) and `prove` (formally check "can this agent ever reach host X?" — or get a counterexample). That's the audit→enforce loop from the policy lesson, live.
+
+## 5. Where does its model come from? — `inference`
+
+```bash
+openshell inference get
+```
+
+The gateway's **privacy router**: set one backend here and every sandbox reaches it through `inference.local` — the agent never holds the key. `openshell inference set` points it at a provider+model.
+
+## 6. Expose a port — `forward` / `service`
+
+If a sandbox serves HTTP, reach it without `oc`:
+
+```bash
+openshell service list           # exposed sandbox services
+openshell forward list           # active port-forwards
+```
+
+(You'll use `openshell forward start` for real in *Demo Your Copilot*.)
+
+## Clean up
+
+```bash
+openshell sandbox delete lab
+```
+
+<Callout type="rh" title="You've now driven the whole control plane">
+Create, inspect, observe (logs/audit), govern (policy + prove), route inference, expose services — every part of OpenShell, by hand. <strong>That's</strong> the foundation. Next: build something on top of it.
+</Callout>
