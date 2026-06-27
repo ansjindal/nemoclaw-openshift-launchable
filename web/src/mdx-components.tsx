@@ -13,6 +13,7 @@ import { OpenShellConsole } from "@/components/diagrams/OpenShellConsole";
 import { PolicyExplorer } from "@/components/diagrams/PolicyExplorer";
 import { SandboxFlow } from "@/components/diagrams/SandboxFlow";
 import { SecurityLayers } from "@/components/diagrams/SecurityLayers";
+import { LiveOpenShell } from "@/components/LiveOpenShell";
 
 const components: MDXComponents = {
   Terminal,
@@ -28,6 +29,7 @@ const components: MDXComponents = {
   PolicyExplorer,
   SandboxFlow,
   SecurityLayers,
+  LiveOpenShell,
   pre: CodeBlock, // every fenced code block gets a Copy / Run-in-shell toolbar
 };
 
