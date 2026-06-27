@@ -1,53 +1,103 @@
 # Cluster Copilot preset — least-privilege egress for an agent that inspects the
-# cluster it lives in. OpenShell is deny-by-default: a sandbox can ONLY reach the
-# endpoints listed here, only via the listed binaries, and (with enforcement) only
-# the listed methods/paths. This grant is READ-ONLY: GET to the Kubernetes API and
-# the Prometheus query API — enough to diagnose, not enough to mutate.
+# cluster it lives in. OpenShell is deny-by-default: a gateway sandbox can ONLY
+# reach the hosts listed here, and ONLY via the listed binaries. This grant opens
+# the *network path* to the in-cluster Kubernetes API (and, optionally, Prometheus).
+#
+# READ-ONLY is enforced by RBAC, not the network layer: the agent authenticates
+# with a ServiceAccount bound to the built-in `view` ClusterRole, so the API server
+# itself rejects any write. (See web/src/content/extend.mdx for the SA + token steps.)
 #
 # Apply it to a NEW gateway sandbox at creation:
 #   openshell sandbox create --name pod-doctor \
 #     --policy policies/presets/cluster-copilot.yaml \
-#     --from ghcr.io/openclaw/openclaw:2026.6.10 \
-#     --env OPENCLAW_CONFIG_PATH=/workspace/openclaw.json \
-#     -- node dist/index.js gateway --bind=lan --port 18789 --allow-unconfigured --auth password
+#     --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest \
+#     -- sh -c 'sleep infinity'
 #
-# The agent still needs an RBAC token (a read-only ServiceAccount) to authenticate;
-# this policy only opens the *network path* through the privacy proxy.
+# SCHEMA NOTE: this is the real OpenShell sandbox-policy format (see the shipped
+# /etc/openshell/policy.yaml). `network_policies` is a MAP keyed by policy id; each
+# binary is a `{ path: ... }` object; per-endpoint `rules` use an `allow:` wrapper.
+#
+# Why `access: full` and not L7 `enforcement: enforce` + method/path rules?
+# L7 enforcement requires the proxy to terminate TLS (`tls: terminate`) and present
+# its own cert. The dashboard's Node client pins the cluster CA (/workspace/cluster/ca.crt),
+# so it would reject a MITM'd cert. `access: full` is an L4 tunnel to the API host —
+# the client does real TLS to the real API server, and the `view` RBAC role keeps it
+# read-only. (To enforce GET-only at the network layer instead, switch to
+# `tls: terminate` + `rules` and make the client trust the proxy CA.)
+
+version: 1
+
+# Sandbox setup (queried once at startup). The agent runs Landlock-confined: it can
+# only read/write the paths below. Files the agent (or `openshell sandbox exec`) needs
+# must live under a read_write path — we use /tmp. NOTE: files placed via `oc exec`
+# into /workspace are NOT visible to the confined agent; stage everything in /tmp.
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
 network_policies:
-  # --- in-cluster Kubernetes API (read-only) ---
-  - name: kube-api
+  # --- in-cluster Kubernetes API ---
+  kube_api:
+    name: kube-api
+    # OPA host matching is EXACT (no globs) — list every form a client might use.
+    # The OpenShell proxy TERMINATES TLS (it presents a cert issued by "OpenShell
+    # Sandbox CA"), inspects L7, and forwards only what the rules allow. Clients
+    # therefore trust the sandbox's default bundle (NODE_EXTRA_CA_CERTS /
+    # SSL_CERT_FILE / CURL_CA_BUNDLE = /etc/openshell-tls/...), NOT the cluster CA.
+    # GET-only rules make the network layer itself reject any write.
     endpoints:
       - host: kubernetes.default.svc.cluster.local
         port: 443
         protocol: rest
-        enforcement: enforce          # L7 inspect: only the GET paths below are allowed
-    binaries:
-      - /usr/bin/oc
-      - /usr/local/bin/oc
-      - /usr/bin/kubectl
-      - /usr/local/bin/kubectl
-      - /usr/bin/node
-      - /usr/local/bin/node
-    rules:
-      - method: GET
-        path: /api/**                 # core API (pods, events, nodes, ...)
-      - method: GET
-        path: /apis/**                # named API groups (apps, route.openshift.io, ...)
-      # NOTE: no POST/PUT/PATCH/DELETE — the copilot can read & propose, not change.
-
-  # --- in-cluster Prometheus (query API only) ---
-  # Host matches the kube-prometheus-stack service from the optional monitoring phase.
-  - name: prometheus
-    endpoints:
-      - host: kube-prometheus-stack-prometheus.monitoring.svc.cluster.local
-        port: 9090
-        protocol: rest
+        tls: terminate
         enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**"
+      - host: kubernetes.default.svc
+        port: 443
+        protocol: rest
+        tls: terminate
+        enforcement: enforce
+        rules:
+          - allow:
+              method: GET
+              path: "/**"
     binaries:
-      - /usr/bin/oc
-      - /usr/local/bin/oc
-      - /usr/bin/node
-      - /usr/local/bin/node
-    rules:
-      - method: GET
-        path: /api/v1/**              # /query, /query_range, /label/*/values, ...
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/node }
+      - { path: /usr/bin/curl }
+      - { path: /bin/sh }
+      - { path: /bin/bash }
+
+  # --- in-cluster Prometheus (query API) — only reachable if the optional ---
+  # --- monitoring phase is deployed. Host matches the kube-prometheus-stack svc. ---
+  prometheus:
+    name: prometheus
+    # Plaintext HTTP on :9090 — a simple host+port allow (L4). Read-only is inherent
+    # to the Prometheus query API. Only reachable if the optional monitoring phase ran.
+    endpoints:
+      - { host: kube-prometheus-stack-prometheus.monitoring.svc.cluster.local, port: 9090 }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/node }
+      - { path: /usr/bin/curl }

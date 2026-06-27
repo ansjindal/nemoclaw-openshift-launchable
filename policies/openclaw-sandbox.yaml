@@ -1,128 +1,62 @@
-# OpenClaw sandbox policy for NemoClaw / OpenShell.
-# Schema: OpenShell sandbox-policy (see policies/README.md). Deny-by-default:
-# the agent can ONLY reach endpoints listed here, and only via the listed binaries.
+# OpenClaw agent egress policy — for a gateway-created OpenShell sandbox.
 #
-# This is the BALANCED tier baseline (inference + ClawHub + OpenClaw API/docs + npm)
-# plus dev presets. Static fields (filesystem, process) are creation-locked; the
-# network section is hot-reloadable via `nemoclaw <name> policy-add`.
+# This is the REAL OpenShell sandbox-policy schema (see the shipped
+# /etc/openshell/policy.yaml): `network_policies` is a MAP keyed by id, each binary
+# is a `{ path: ... }` object, and simple allows are bare `{ host, port }` (L4 tunnel).
+# OpenShell is deny-by-default — a gateway sandbox can reach ONLY the hosts below,
+# and ONLY via the listed binaries.
 #
-# IMPORTANT: the inference entry's host MUST match NEMOCLAW_INFERENCE_BASE_URL in .env
-# (no local GPU — inference is remote). Update the host below to your endpoint.
+# NOTE: a gateway sandbox is network-SEALED from the in-cluster Kubernetes API by the
+# supervisor (egress proxy routes to the internet only). That is by design — these
+# agents do governed EXTERNAL work, not in-cluster reads.
+#
+# The inference host is rendered by scripts/45-openclaw.sh from NEMOCLAW_INFERENCE_BASE_URL
+# (the __INFERENCE_HOST__ placeholder is replaced at deploy time).
 
-network_policies:
-  # --- baseline: remote inference endpoint (REQUIRED, edit host to match .env) ---
-  - name: inference
-    endpoints:
-      - host: integrate.api.nvidia.com   # <-- set to your NEMOCLAW_INFERENCE_BASE_URL host
-        port: 443
-        protocol: rest
-        enforcement: enforce
-    binaries:
-      - /usr/bin/node
-      - /usr/local/bin/node
-      - /usr/bin/python*
-      - /usr/local/bin/python*
-    rules:
-      - method: POST
-        path: /v1/**
+version: 1
 
-  # --- baseline: ClawHub (agent/blueprint registry) ---
-  - name: clawhub
-    endpoints:
-      - host: clawhub.nvidia.com
-        port: 443
-        protocol: rest
-        enforcement: enforce
-    binaries:
-      - /usr/bin/node
-      - /usr/local/bin/node
-    rules:
-      - method: GET
-        path: /**
-
-  # --- baseline: OpenClaw API + docs ---
-  - name: openclaw
-    endpoints:
-      - host: api.openclaw.ai
-        port: 443
-        protocol: rest
-        enforcement: enforce
-      - host: docs.openclaw.ai
-        port: 443
-        protocol: rest
-        enforcement: enforce
-    binaries:
-      - /usr/bin/node
-      - /usr/local/bin/node
-    rules:
-      - method: GET
-        path: /**
-
-  # --- baseline: npm registry (package installs) ---
-  - name: npm
-    endpoints:
-      - host: registry.npmjs.org
-        port: 443
-        protocol: rest
-        access: full          # L4 tunnel — package managers need raw TLS, not L7 inspection
-    binaries:
-      - /usr/bin/npm
-      - /usr/local/bin/npm
-      - /usr/bin/node
-      - /usr/local/bin/node
-
-  # --- balanced preset: PyPI ---
-  - name: pypi
-    endpoints:
-      - host: pypi.org
-        port: 443
-        protocol: rest
-        access: full
-      - host: files.pythonhosted.org
-        port: 443
-        protocol: rest
-        access: full
-    binaries:
-      - /usr/bin/pip*
-      - /usr/local/bin/pip*
-      - /usr/bin/python*
-      - /usr/local/bin/python*
-
-  # --- balanced preset: Hugging Face (read-only model/dataset pulls) ---
-  - name: huggingface
-    endpoints:
-      - host: huggingface.co
-        port: 443
-        protocol: rest
-        enforcement: enforce
-    binaries:
-      - /usr/bin/python*
-      - /usr/local/bin/python*
-    rules:
-      - method: GET
-        path: /**
-
-# Static, creation-locked fields below: changing them recreates the sandbox.
-filesystem:
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
   read_write:
     - /sandbox
     - /tmp
-  read_only:
-    - /usr
-    - /etc
-    - /lib
-    - /bin
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
 
 process:
-  # Only these executables may run inside the sandbox.
-  allowed_binaries:
-    - /usr/bin/node
-    - /usr/local/bin/node
-    - /usr/bin/npm
-    - /usr/local/bin/npm
-    - /usr/bin/python*
-    - /usr/local/bin/python*
-    - /usr/bin/pip*
-    - /usr/local/bin/pip*
-    - /bin/sh
-    - /bin/bash
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+network_policies:
+  # --- remote inference endpoint (REQUIRED) — host rendered from .env ---
+  inference:
+    name: inference
+    endpoints:
+      - { host: __INFERENCE_HOST__, port: 443 }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/node }
+
+  # --- OpenClaw operational hosts (registry, API, docs) ---
+  openclaw:
+    name: openclaw
+    endpoints:
+      - { host: api.openclaw.ai, port: 443 }
+      - { host: docs.openclaw.ai, port: 443 }
+      - { host: clawhub.nvidia.com, port: 443 }
+      - { host: registry.npmjs.org, port: 443 }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/node }
+      - { path: /usr/bin/npm }
+      - { path: /usr/local/bin/npm }

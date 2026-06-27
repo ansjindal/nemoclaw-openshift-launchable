@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Phase 45 — run the OpenClaw agent as a Sandbox (agents.x-k8s.io/v1alpha1) on MicroShift,
-# pointed at the REMOTE custom OpenAI-compatible inference endpoint, and expose its gateway
-# endpoint (port 18789) via an OpenShift Route.
-#
-# This is the "gateway in OpenShift" path: the agent-sandbox controller reconciles the
-# Sandbox CR into an OpenClaw gateway pod. (NemoClaw's own `onboard` would instead spin a
-# separate k3s-in-Docker gateway on the host — not what we want here.)
+# Phase 45 — create the OpenClaw agent the STANDARD OpenShell way: a GATEWAY-managed
+# sandbox (`openshell sandbox create` against the in-cluster gateway), NOT a hand-applied
+# Sandbox CR and NOT nemoclaw. The OpenShell supervisor seals the agent in its own network
+# namespace and governs egress through its proxy (deny-by-default + our policy). We then
+# start the OpenClaw gateway inside the sandbox and expose its Control UI to the host with
+# `openshell forward` (a NodePort cannot reach a sealed sandbox — the UI port lives in the
+# agent's private netns; only the supervisor bridges it).
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
@@ -15,34 +15,76 @@ load_env
 export KUBECONFIG="$(kubeconfig_path)"
 require_cmd oc
 [[ -f "$KUBECONFIG" ]] || die "kubeconfig not found — run phase 20 first."
-# Inference creds are OPTIONAL. If all three are present we pre-configure the model so the
-# agent is ready to chat. If not, the agent deploys UNCONFIGURED and the user picks a
-# provider/model + pastes a key in the OpenClaw UI (onboarding). Either way: never halt.
+
+NS="${OPENSHELL_NAMESPACE:-openshell}"
+AGENT="${OPENCLAW_AGENT_NAME:-shifty}"
+UI_PORT="${OPENCLAW_UI_PORT:-18789}"
+GW_PASSWORD="${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"
+SANDBOX_IMAGE="${OPENCLAW_SANDBOX_IMAGE:-ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest}"
+GW_URL="${OPENSHELL_CLI_ENDPOINT:-http://127.0.0.1:30808}"
+
+# Inference creds (optional — if missing, the agent deploys UNCONFIGURED and the user
+# picks a provider/model + pastes a key in the OpenClaw UI). Never halt.
 API_KEY="${NEMOCLAW_PROVIDER_KEY:-${NEMOCLAW_API_KEY:-}}"
+BASE_URL="${NEMOCLAW_INFERENCE_BASE_URL:-}"
+MODEL="${NEMOCLAW_MODEL:-}"
+INFERENCE_API="${NEMOCLAW_INFERENCE_API:-openai-completions}"
 CONFIGURED=false
-if [[ -n "${NEMOCLAW_INFERENCE_BASE_URL:-}" && -n "${NEMOCLAW_MODEL:-}" && -n "$API_KEY" ]]; then
-  CONFIGURED=true
+[[ -n "$BASE_URL" && -n "$MODEL" && -n "$API_KEY" ]] && CONFIGURED=true
+INFERENCE_HOST="$(printf '%s' "$BASE_URL" | sed -E 's#^https?://##; s#/.*##; s#:.*##')"
+
+# --- the openshell CLI must be installed + pointed at the in-cluster gateway ---
+if ! command -v openshell >/dev/null 2>&1; then
+  log "Installing the openshell CLI"
+  curl -LsSf https://raw.githubusercontent.com/NVIDIA/OpenShell/main/install.sh | sh >/dev/null 2>&1 \
+    || die "openshell CLI install failed — required to create the gateway sandbox."
+fi
+export PATH="$PATH:$HOME/.local/bin"
+log "Registering + selecting the OpenShell gateway at ${GW_URL}"
+openshell gateway add "$GW_URL" --local --name cluster >/dev/null 2>&1 || true
+openshell gateway select cluster >/dev/null 2>&1 || true
+openshell status >/dev/null 2>&1 || warn "Gateway not answering at ${GW_URL} — is phase 30/50 done?"
+
+# --- render the egress policy (deny-by-default + inference + openclaw hosts) ---
+POLICY_SRC="$REPO_ROOT/policies/openclaw-sandbox.yaml"
+POLICY_RENDERED="/tmp/openclaw-sandbox.rendered.yaml"
+if [[ -f "$POLICY_SRC" && -n "$INFERENCE_HOST" ]]; then
+  sed "s/__INFERENCE_HOST__/${INFERENCE_HOST}/g" "$POLICY_SRC" > "$POLICY_RENDERED"
+  POLICY_ARG=(--policy "$POLICY_RENDERED")
+  log "Rendered egress policy (inference host: ${INFERENCE_HOST})"
+else
+  warn "No policy/inference host — sandbox will use the gateway default policy."
+  POLICY_ARG=()
 fi
 
-NS="openclaw"
-INFERENCE_API="${NEMOCLAW_INFERENCE_API:-openai-completions}"
+# --- create the agent as a gateway-managed sandbox ---
+ox() { openshell sandbox exec -n "$AGENT" -- "$@"; }
+log "Creating gateway sandbox '${AGENT}' from ${SANDBOX_IMAGE}"
+openshell sandbox delete "$AGENT" >/dev/null 2>&1 || true
+sleep 2
+openshell sandbox create --name "$AGENT" "${POLICY_ARG[@]}" \
+  --from "$SANDBOX_IMAGE" -- sh -c 'sleep infinity' >/tmp/openclaw-create.log 2>&1 &
+log "Waiting for the sandbox supervisor to finish bootstrap (gateway phase Ready)"
+ready=false
+for i in $(seq 1 48); do
+  sleep 5
+  if openshell sandbox exec -n "$AGENT" -- true >/dev/null 2>&1; then
+    ready=true; log "Sandbox exec-ready after $((i*5))s"; break
+  fi
+done
+[[ "$ready" == true ]] || { warn "Sandbox not ready — create log:"; tail -8 /tmp/openclaw-create.log; }
 
-log "Creating namespace ${NS} + granting anyuid SCC (OpenClaw runs as UID 1000)"
-oc create namespace "$NS" --dry-run=client -o yaml | oc apply -f -
-oc -n "$NS" adm policy add-scc-to-user anyuid -z default 2>/dev/null || \
-  warn "Could not grant anyuid in ${NS}."
-
-# Build OpenClaw config (schema verified against the image: models.providers.<p>.baseUrl
-# + models[] {id,name}; default via agents.defaults.model.primary). jq keeps the key safe.
-if [[ "$CONFIGURED" == "true" ]]; then
-  log "Building openclaw.json (model=custom/${NEMOCLAW_MODEL}, api=${INFERENCE_API})"
+# --- build OpenClaw config (inference + gateway auth) and stage it into /sandbox ---
+# HOME=/sandbox; config at ~/.openclaw/openclaw.json. The agent is Landlock-confined to
+# /sandbox + /tmp, so stage via `openshell sandbox exec` (base64 — exec rejects newlines).
+if [[ "$CONFIGURED" == true ]]; then
+  log "Configuring OpenClaw model (custom/${MODEL} via ${INFERENCE_API})"
   OPENCLAW_JSON="$(jq -n \
-    --arg url "$NEMOCLAW_INFERENCE_BASE_URL" \
-    --arg key "$API_KEY" \
-    --arg model "$NEMOCLAW_MODEL" \
-    --arg api "$INFERENCE_API" \
+    --arg url "$BASE_URL" --arg key "$API_KEY" --arg model "$MODEL" \
+    --arg api "$INFERENCE_API" --arg pw "$GW_PASSWORD" \
     '{
-       gateway: { controlUi: { dangerouslyAllowHostHeaderOriginFallback: true } },
+       gateway: { auth: { password: $pw }, remote: { password: $pw },
+                  controlUi: { dangerouslyAllowHostHeaderOriginFallback: true } },
        agents:  { defaults: { model: { primary: ("custom/" + $model) } } },
        models:  { providers: { custom: {
          baseUrl: $url, apiKey: $key, api: $api,
@@ -50,97 +92,61 @@ if [[ "$CONFIGURED" == "true" ]]; then
        } } }
      }')"
 else
-  warn "No inference creds in env — deploying OpenClaw UNCONFIGURED."
-  warn "After launch, open the OpenClaw UI and add a provider/model + key (Settings)."
-  OPENCLAW_JSON='{"gateway":{"controlUi":{"dangerouslyAllowHostHeaderOriginFallback":true}}}'
+  warn "No inference creds in env — deploying OpenClaw UNCONFIGURED (add a model in the UI)."
+  OPENCLAW_JSON="$(jq -n --arg pw "$GW_PASSWORD" \
+    '{ gateway: { auth: { password: $pw }, remote: { password: $pw },
+                  controlUi: { dangerouslyAllowHostHeaderOriginFallback: true } } }')"
 fi
+OCB64="$(printf '%s' "$OPENCLAW_JSON" | base64 -w0)"
+ox sh -c "mkdir -p /sandbox/.openclaw && echo $OCB64 | base64 -d > /sandbox/.openclaw/openclaw.json" \
+  || warn "Could not stage openclaw.json."
+ox openclaw config validate >/dev/null 2>&1 && log "openclaw.json valid." || warn "openclaw config validate failed."
 
-# Store config in a Secret (it holds the API key) + a fixed gateway password Secret.
-# Fixed password (not a random token) so workshop users can be told it up front.
-# Device pairing remains enabled and is approved in the pairing lesson.
-GW_PASSWORD="${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"
-log "Creating openclaw-config Secret + gateway password Secret"
-oc -n "$NS" create secret generic openclaw-config \
-  --from-literal=openclaw.json="$OPENCLAW_JSON" \
-  --dry-run=client -o yaml | oc apply -f -
-oc -n "$NS" create secret generic openclaw-gateway-password \
-  --from-literal=password="$GW_PASSWORD" \
-  --dry-run=client -o yaml | oc apply -f -
-
-# Seed the agent's identity/soul/kickoff so it boots already knowing who it is (the
-# seed-workspace initContainer copies these into the workspace, create-if-missing).
+# --- seed the agent's identity (IDENTITY.md / SOUL.md / BOOTSTRAP.md) into the workspace ---
 SEED_DIR="$REPO_ROOT/manifests/openclaw/workspace-seed"
 if [[ -d "$SEED_DIR" ]]; then
-  log "Creating openclaw-workspace-seed ConfigMap (IDENTITY.md / SOUL.md / BOOTSTRAP.md)"
-  oc -n "$NS" create configmap openclaw-workspace-seed \
-    --from-file="$SEED_DIR" \
-    --dry-run=client -o yaml | oc apply -f -
-fi
-
-# --- Make the OpenClaw image reliably available to the node ---
-# ghcr.io throttles repeated large anonymous pulls (unexpected-EOF on big layers), so the
-# node's in-cluster CRI-O pull can stall. We instead pull on the HOST with retries (optional
-# ghcr auth via GHCR_USER/GHCR_TOKEN raises limits) and side-load into the node's CRI-O store,
-# so the node never does the flaky pull. The Sandbox uses imagePullPolicy: IfNotPresent.
-ENGINE="${CONTAINER_ENGINE:-podman}"
-NODE_CTR="${MINC_NODE_CONTAINER:-microshift}"
-PULL="sudo $ENGINE"   # MINC node runs under rootful podman/docker
-# Take the first OpenClaw image reference from the manifest.
-OPENCLAW_IMAGE="$(grep -oE 'image: ghcr.io/openclaw/openclaw:[^ ]+' "$REPO_ROOT/manifests/openclaw/openclaw-sandbox.yaml" | awk '{print $2}' | head -n1)"
-
-ensure_image_in_node() {
-  local img="$1"
-  # Tag-aware check: only skip if this EXACT repo:tag is present (so an image bump re-loads).
-  if $PULL exec "$NODE_CTR" crictl images 2>/dev/null | awk '{print $1":"$2}' | grep -qx "$img"; then
-    log "Image already in node store: $img"; return 0
-  fi
-  if [[ -n "${GHCR_TOKEN:-}" ]]; then
-    log "Authenticating to ghcr.io (raises pull limits)"
-    echo "$GHCR_TOKEN" | $PULL login ghcr.io -u "${GHCR_USER:-oauth2}" --password-stdin || \
-      warn "ghcr.io login failed — continuing anonymously."
-  fi
-  log "Host-pulling $img (retries; resumes on EOF)"
-  local n=0
-  until $PULL image exists "$img" 2>/dev/null; do
-    $PULL pull "$img" && break
-    n=$((n+1)); (( n >= 15 )) && die "host pull of $img failed after $n attempts (ghcr.io unreachable)."
-    warn "pull attempt $n hit ghcr.io flakiness — retrying in 10s"; sleep 10
+  log "Seeding agent workspace identity files"
+  for f in "$SEED_DIR"/*; do
+    [[ -f "$f" ]] || continue
+    b="$(base64 -w0 < "$f")"
+    ox sh -c "mkdir -p /sandbox/workspace && echo $b | base64 -d > /sandbox/workspace/$(basename "$f")" || true
   done
-  local tar="/tmp/openclaw-image.tar"
-  log "Side-loading $img into node '$NODE_CTR' CRI-O store"
-  # Clear any stale tar first — `podman save -o` refuses to modify an existing docker-archive.
-  # The tar is written by `sudo podman save` (root-owned), so removal needs sudo and must be
-  # non-fatal (set -e + a leftover root-owned tar in sticky /tmp would otherwise abort).
-  sudo rm -f "$tar" 2>/dev/null || true; $PULL exec "$NODE_CTR" rm -f "$tar" 2>/dev/null || true
-  $PULL save "$img" -o "$tar"
-  $PULL cp "$tar" "${NODE_CTR}:${tar}"
-  $PULL exec "$NODE_CTR" skopeo copy "docker-archive:${tar}" "containers-storage:${img}"
-  sudo rm -f "$tar" 2>/dev/null || true; $PULL exec "$NODE_CTR" rm -f "$tar" 2>/dev/null || true
-  $PULL exec "$NODE_CTR" crictl images | awk '{print $1":"$2}' | grep -qx "$img" && log "Side-load OK." || die "Side-load failed."
-}
-[[ -n "$OPENCLAW_IMAGE" ]] && ensure_image_in_node "$OPENCLAW_IMAGE"
-
-log "Applying OpenClaw Sandbox + Service + Route + NodePort"
-oc -n "$NS" apply -f "$REPO_ROOT/manifests/openclaw/openclaw-sandbox.yaml"
-oc -n "$NS" apply -f "$REPO_ROOT/manifests/openclaw/openclaw-service.yaml"
-oc -n "$NS" apply -f "$REPO_ROOT/manifests/openclaw/openclaw-route.yaml"
-# NodePort (root, DNS-free) for browser access without subdomains; Route for DNS-capable access.
-oc -n "$NS" apply -f "$REPO_ROOT/manifests/openclaw/openclaw-nodeport.yaml"
-
-# Deny-by-default L4 network policy (set OPENCLAW_OPEN_SANDBOX=true to skip for an open demo).
-if [[ "${OPENCLAW_OPEN_SANDBOX:-false}" != "true" ]]; then
-  log "Applying deny-by-default NetworkPolicy (DNS + 443 egress, router-only ingress)"
-  oc -n "$NS" apply -f "$REPO_ROOT/manifests/openclaw/openclaw-networkpolicy.yaml"
-else
-  warn "OPENCLAW_OPEN_SANDBOX=true — leaving the sandbox network open (no policy)."
 fi
 
-log "Waiting for the OpenClaw gateway pod to be ready"
-oc -n "$NS" wait --for=condition=Ready pod/openclaw-sandbox --timeout=180s || oc -n "$NS" get pods
+# --- start the OpenClaw gateway (Control UI + WebSocket) inside the sandbox ---
+log "Starting the OpenClaw gateway on :${UI_PORT} (auth=password)"
+ox sh -c "cd /sandbox && nohup openclaw gateway run --port ${UI_PORT} --bind lan --auth password --password '${GW_PASSWORD}' --allow-unconfigured >/sandbox/gateway.log 2>&1 & sleep 7; tail -5 /sandbox/gateway.log" \
+  || warn "Could not start the OpenClaw gateway."
 
-ROUTE_HOST="$(oc -n "$NS" get route openclaw -o jsonpath='{.spec.host}' 2>/dev/null || true)"
-log "OpenClaw endpoint exposed at: https://${ROUTE_HOST}"
-log "OpenClaw UI (host NodePort, DNS-free): http://<host>:30789/"
-log "Control UI login password: ${GW_PASSWORD}  (first browser still needs device pairing approval)"
-log "Confirm the model is your custom endpoint:"
-oc -n "$NS" logs openclaw-sandbox -c openclaw 2>&1 | grep -i "agent model" | tail -1 || true
+# --- expose the Control UI on the host via `openshell forward` (persistent systemd unit) ---
+log "Installing openclaw-forward.service (openshell forward host:${UI_PORT} -> sandbox)"
+RUN_USER="$(id -un)"; RUN_HOME="$HOME"
+OPENSHELL_BIN="$(command -v openshell)"
+sudo tee /etc/systemd/system/openclaw-forward.service >/dev/null <<UNIT
+[Unit]
+Description=OpenShell forward: host ${UI_PORT} -> OpenClaw agent '${AGENT}' Control UI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${RUN_USER}
+Environment=HOME=${RUN_HOME}
+Environment=PATH=${RUN_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Re-select the gateway each start (CLI state lives in \$HOME), then hold the forward open.
+ExecStart=/bin/sh -c '${OPENSHELL_BIN} gateway select cluster >/dev/null 2>&1; exec ${OPENSHELL_BIN} forward start 0.0.0.0:${UI_PORT} ${AGENT}'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+sudo systemctl daemon-reload
+sudo systemctl enable --now openclaw-forward.service >/dev/null 2>&1 || warn "Could not start openclaw-forward.service."
+sleep 4
+
+log "OpenClaw agent '${AGENT}' is a gateway-managed sandbox in namespace ${NS}:"
+oc -n "$NS" get pod "$AGENT" 2>/dev/null || openshell sandbox list 2>/dev/null | head
+UI_CODE="$(curl -sS -m6 -o /dev/null -w '%{http_code}' "http://127.0.0.1:${UI_PORT}/" 2>/dev/null || echo 000)"
+log "Control UI on host 127.0.0.1:${UI_PORT} -> HTTP ${UI_CODE}  (publish host port ${UI_PORT} as your Brev URL)"
+log "Control UI password: ${GW_PASSWORD}  (first browser still needs device pairing approval)"

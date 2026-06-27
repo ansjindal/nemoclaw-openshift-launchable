@@ -22,11 +22,13 @@ NODE_CTR="${MINC_NODE_CONTAINER:-microshift}"
 # fronts an UNAUTHENTICATED admin console — only acceptable on an ephemeral workshop
 # instance. Set NODEPORT_BIND_ADDR=127.0.0.1 to restrict to loopback + SSH tunnels.
 BIND_ADDR="${NODEPORT_BIND_ADDR:-0.0.0.0}"
-# Space-separated NodePorts to publish. 30789 = OpenClaw UI, 30900 = console (optional
-# phase 60), 30808 = OpenShell gateway gRPC (so the workshop shell's `openshell` CLI has a
-# stable endpoint), 30030 = Grafana (optional phase 80). A listener for an undeployed
-# NodePort is harmless (no backend = refused).
-PORTS="${NODEPORT_FORWARDS:-30789 30900 30808 30030}"
+# Space-separated NodePorts to publish. 30900 = console (optional phase 60), 30808 =
+# OpenShell gateway gRPC (so the workshop shell's `openshell` CLI has a stable endpoint),
+# 30030 = Grafana (optional phase 80). NOTE: the OpenClaw UI is NOT here — it's a sealed
+# gateway sandbox whose UI port lives in a private netns a NodePort can't reach; phase 45
+# publishes it on the host via `openshell forward` (openclaw-forward.service) instead. A
+# listener for an undeployed NodePort is harmless (no backend = refused).
+PORTS="${NODEPORT_FORWARDS:-30900 30808 30030}"
 
 require_cmd "$ENGINE"
 # The MINC container may live in the rootless or the rootful store; pick whichever can
@@ -52,7 +54,7 @@ set -uo pipefail
 ENGINE="${CONTAINER_ENGINE:-podman}"
 NODE_CTR="${MINC_NODE_CONTAINER:-microshift}"
 BIND_ADDR="${NODEPORT_BIND_ADDR:-0.0.0.0}"
-PORTS="${NODEPORT_FORWARDS:-30789 30900 30808 30030}"
+PORTS="${NODEPORT_FORWARDS:-30900 30808 30030}"
 
 node_ip() { "$ENGINE" inspect "$NODE_CTR" --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null || true; }
 
