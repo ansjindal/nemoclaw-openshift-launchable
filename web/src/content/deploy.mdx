@@ -9,14 +9,14 @@ oc get nodes
 One `Ready` node = MicroShift is live. Now the workloads:
 
 ```bash
-oc get pods -A | grep -vE "Running|Completed" || echo "✅ everything is Running"
+oc get pods -A --no-headers | grep -vE "Running|Completed" || echo "✅ everything is Running"
 ```
 
-If that prints `✅ everything is Running`, the whole stack is healthy. If a few are still pulling images on a fresh box, give it a minute:
+If that prints `✅ everything is Running`, the whole stack is healthy. (The `--no-headers` matters — without it the column header always shows up and hides the “all clear”.) If a few are still pulling images on a fresh box, give it a minute:
 
 ```bash
 # only if some pods aren't up yet — watch them settle, Ctrl-C when done
-watch -n5 'oc get pods -A | grep -vE "Running|Completed" || echo ALL-RUNNING'
+watch -n5 'oc get pods -A --no-headers | grep -vE "Running|Completed" || echo ALL-RUNNING'
 ```
 
 ## Check the key pieces
