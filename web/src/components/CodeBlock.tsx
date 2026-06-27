@@ -10,18 +10,40 @@ function extractText(node: ReactNode): string {
   return "";
 }
 
-// Override for MDX <pre>: every fenced block gets a Copy / Run-in-shell toolbar.
+// Find the fence language from the inner <code class="language-xxx">.
+function getLang(node: ReactNode): string {
+  if (Array.isArray(node)) {
+    for (const c of node) { const l = getLang(c); if (l) return l; }
+    return "";
+  }
+  if (isValidElement(node)) {
+    const cn = String((node.props as { className?: string }).className || "");
+    const m = /language-([\w-]+)/.exec(cn);
+    if (m) return m[1];
+    return getLang((node.props as { children?: ReactNode }).children);
+  }
+  return "";
+}
+
+const SHELL_LANGS = ["bash", "sh", "shell", "console", "zsh"];
+
+// Override for MDX <pre>: code blocks get a Copy toolbar, and shell blocks with at least
+// one real command also get a "Run in shell" button. Non-shell fences (text, yaml, md,
+// json, …) and comment-only blocks are illustrative — Copy only, no Run.
 export function CodeBlock({ children }: { children?: ReactNode }) {
   const code = extractText(children).replace(/\n$/, "");
+  const lang = getLang(children);
   const [copied, setCopied] = useState(false);
-  // Heuristic: shell-ish blocks (commands) get a Run button.
-  const runnable = /(^|\n)\s*(oc |openclaw |kubectl |helm |sudo |curl |\.\/scripts|git |cat |export )/.test(code) ||
-    code.split("\n").length <= 6;
+
+  const isShell = lang === "" || SHELL_LANGS.includes(lang);
+  const hasCommand = code.split("\n").some((l) => l.trim() !== "" && !/^\s*#/.test(l));
+  const runnable = isShell && hasCommand;
+  const label = lang || "shell";
 
   return (
     <div className="group relative my-5 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-code-bg)]">
       <div className="flex items-center justify-between border-b border-[var(--color-line)] px-3 py-1.5">
-        <span className="font-mono text-[11px] text-[var(--color-fg-mut)]">shell</span>
+        <span className="font-mono text-[11px] text-[var(--color-fg-mut)]">{label}</span>
         <div className="flex gap-2">
           {runnable && (
             <button
