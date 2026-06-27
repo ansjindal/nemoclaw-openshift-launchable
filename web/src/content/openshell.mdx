@@ -57,7 +57,7 @@ We pin agent-sandbox to <strong>v0.4.6</strong> (the last <code>v1alpha1</code>-
 
 ## How you reach the gateway
 
-Inside the cluster the gateway is `svc/openshell:8080`. But your workshop shell runs on the **VM, outside the cluster** — so the Helm chart exposes the gateway as a **NodePort** (`30808`), and a tiny `socat` systemd unit republishes that NodePort on the VM's own `127.0.0.1:30808`. The CLI is registered against that:
+Inside the cluster the gateway is a Service, `svc/openshell:8080`. Your workshop shell runs on the **VM, outside the cluster**, so the Helm chart exposes that Service as a **NodePort** — `30808` on the MicroShift node (which itself lives *inside* the podman container, so the NodePort isn't on the VM yet). A tiny `socat` systemd unit then forwards the VM's `:30808` to the node's `10.x.x.x:30808`, so the CLI — registered against `http://127.0.0.1:30808` — reaches the gateway:
 
 ```bash
 openshell status
