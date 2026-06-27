@@ -9,14 +9,14 @@ Two paths run through OpenShell: the **agent path** (how an agent comes alive an
 ### The agent path
 - **Gateway** — the control plane (gRPC :8080). It allocates sandboxes, mints each a scoped identity, and hosts the policy engine + inference router. On K8s it's a StatefulSet whose *compute driver* watches the Sandbox CRD.
 - **Sandbox Supervisor** (`openshell-sandbox`) — sideloaded into **every** sandbox as an init-container. It builds the agent's isolated network namespace, exchanges a bootstrap token for a sandbox JWT (`IssueSandboxToken`), relays exec/SSH, and enforces sandbox-side policy.
-- **Agent Harness** — the agent itself (Definition · Memory · Skills), wrapped by the supervisor for gateway-created sandboxes. For the prebuilt Shifty pod, the same OpenClaw image and `.md` workspace run as an agent-sandbox `Sandbox`, with OpenShift NetworkPolicy as the live backstop.
+- **Agent Harness** — the agent itself (Definition · Memory · Skills), wrapped by the supervisor in every gateway-created sandbox. Your `shifty` agent is exactly this: the OpenClaw image + a `.md` workspace, running as an `agents.x-k8s.io` `Sandbox` the gateway manages.
 - **Sub-Agents** — focused agents the harness can spawn, each its own sandbox with its own identity and policy.
 - **Accelerated Tooling** — what the agent reaches *through the guardrail*: filesystem, search, Omniverse/CAD, models — via API, CLI, or MCP.
 
 ### The guardrail path
 - **Policy Engine + Validator** — deny-by-default. Per binary, which hosts/methods/paths are allowed; a draft validator can propose additions for a human to approve.
 - **Network Guardrail** — kernel-level, per-binary egress (`git → github.com ✓`, `curl → anywhere ✗`). Stops exfil through unknown channels; instant, no restart on change.
-- **Privacy Router** — gateway-created sandboxes can call one URL, `inference.local`; the router strips sandbox-local creds and injects the real backend key + model. The prebuilt Shifty pod is simpler for the workshop: it stores its provider config in an in-cluster Secret/writable OpenClaw config.
+- **Privacy Router** — gateway-created sandboxes can call one URL, `inference.local`; the router strips sandbox-local creds and injects the real backend key + model. In this workshop the agent uses a simpler **direct provider config** (`openclaw.json`) pointed at a remote endpoint — same idea, fewer moving parts.
 - **Model** — where inference runs. Here, a remote OpenAI-compatible endpoint (no local GPU); in a GPU cluster, an in-cluster vLLM.
 
 <Callout type="note" title="Why a runtime (not just a prompt)">

@@ -32,10 +32,10 @@ This is the command you asked about — list every sandbox across the cluster:
 oc get sandboxes -A
 ```
 
-You'll see `openclaw/openclaw-sandbox` — that's Shifty. Inspect it:
+You'll see `openshell/shifty` — the agent you created. Inspect it:
 
 ```bash
-oc -n openclaw describe sandbox openclaw-sandbox | head -40
+oc -n openshell describe sandbox shifty | head -40
 ```
 
 ## Policies — what a gateway sandbox may do
@@ -54,16 +54,16 @@ For sandboxes created through the OpenShell gateway, every section maps to a rea
 
 ### See it on your cluster
 
-The repo ships an OpenShell policy you can use for gateway-created OpenClaw sandboxes (deny-by-default, balanced tier). Read the real file:
+The repo ships the OpenShell policy your agent uses (deny-by-default: inference + the OpenClaw hosts). Read the real file:
 
 ```bash
-sed -n '1,45p' ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml
+sed -n '1,60p' ~/nemoclaw-openshift-launchable/policies/openclaw-sandbox.yaml
 ```
 
-Shifty's live, prebuilt pod is governed by the OpenShift-level backstop — a deny-by-default `NetworkPolicy` on the pod:
+Now see the **effective** policy on your live agent — what the gateway is actually enforcing:
 
 ```bash
-oc -n openclaw get networkpolicy
+openshell policy get shifty
 ```
 
 <Callout type="tip" title="The iterate loop">

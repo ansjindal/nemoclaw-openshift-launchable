@@ -1,0 +1,47 @@
+Your browser is paired and your agent has a model. Time to actually talk to it — and watch the platform you built do its job underneath.
+
+## Say hello
+
+In the OpenClaw Control UI (the tab from *Open the Agent UI*), use the chat box:
+
+> Hi! Who are you, and what cluster are you running on?
+
+It answers from its **identity** (the workspace `.md` files — you'll edit those in *Identity & Soul*) using the model you configured. Every reply is a round-trip to your inference endpoint, through the sandbox's egress proxy.
+
+## Watch it work from the shell
+
+While you chat, tail the agent's gateway log — you'll see turns, tool calls, and model requests in real time:
+
+```bash
+openshell sandbox exec -n shifty -- sh -c 'tail -n 20 /sandbox/gateway.log'
+```
+
+And confirm what the agent is allowed to reach — the deny-by-default policy in force:
+
+```bash
+openshell policy get shifty
+```
+
+Everything it can touch on the network is right there. Ask it to fetch a random website and it simply can't — the egress isn't in the policy. That's the guarantee: the agent does what you want, and *only* what you allowed.
+
+## Try a real task
+
+Give it something to actually do (it has a shell + tools inside its sandbox):
+
+> Write a haiku about Kubernetes to /sandbox/haiku.txt, then read it back to me.
+
+Then verify from outside that it really wrote the file in its sealed home:
+
+```bash
+openshell sandbox exec -n shifty -- cat /sandbox/haiku.txt
+```
+
+The agent acted inside its sandbox; you observed it from the control plane. That separation — agent in a sealed box, you holding the keys — is the whole point.
+
+<Callout type="tip" title="If a reply stalls">
+Check the model config and that egress is allowed: <code>openshell sandbox exec -n shifty -- openclaw config get</code> and <code>openshell logs shifty --tail</code>. A blocked request shows as a denied egress in the audit log — that's the policy doing its job, not a bug.
+</Callout>
+
+<Callout type="rh" title="You have a working agent">
+Created via the gateway, sealed, policy-governed, model-backed, and chatting in your browser — entirely by your hand on real OpenShift. Now make it <em>yours</em>: identity, soul, and the control plane that runs it.
+</Callout>

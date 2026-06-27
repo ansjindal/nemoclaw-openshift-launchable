@@ -1,0 +1,56 @@
+The gateway runs *inside* the cluster as a `ClusterIP` Service — nothing outside can reach it yet. The standard OpenShell way to expose it ([docs.nvidia.com/openshell/kubernetes/ingress](https://docs.nvidia.com/openshell/kubernetes/ingress)) is the **Gateway API** with **Envoy Gateway**. That's what we pre-installed; here's how it works and how you reach it.
+
+## The pieces
+
+Envoy Gateway is a Gateway-API controller. Four resources connect your `openshell` Service to the outside:
+
+```text
+GatewayClass (eg) ──refs──▶ EnvoyProxy (data-plane config: Service type + ports)
+        │
+     Gateway (listeners: grpc :8080, web :80)
+        │
+   GRPCRoute ──▶ svc/openshell:8080
+```
+
+Install + wiring (already done — `scripts/30-openshell.sh`):
+
+```bash
+# helm install eg oci://docker.io/envoyproxy/gateway-helm --version v1.8.1 -n envoy-gateway-system
+# oc apply -f manifests/openshell/envoy-gateway.yaml   # EnvoyProxy + GatewayClass + Gateway + GRPCRoute
+```
+
+<Callout type="warn" title="OpenShift gotcha we solved for you">
+Envoy's Helm chart runs a <strong>certgen pre-install hook</strong> (a Job). On OpenShift it can't schedule without an SCC, so the install times out. The fix: grant the whole <code>envoy-gateway-system</code> service-account <em>group</em> the <code>anyuid</code>+<code>privileged</code> SCC <em>before</em> installing, so even hook-created SAs are covered.
+</Callout>
+
+## Inspect it
+
+```bash
+oc get gatewayclass eg
+oc -n envoy-gateway-system get gateway nemoclaw-gw
+oc -n openshell get grpcroute openshell-grpc
+```
+
+`GatewayClass ACCEPTED=True` and the Gateway `PROGRAMMED=True` mean Envoy is routing.
+
+## How you actually reach it here
+
+On a cloud cluster the Gateway gets a `LoadBalancer` with a public IP. **MicroShift-in-podman has no cloud LoadBalancer**, so the `EnvoyProxy` resource pins the Envoy Service to a **NodePort** instead — `30808` for the gRPC listener:
+
+```bash
+oc -n envoy-gateway-system get svc -o wide | grep nemoclaw-gw
+```
+
+A host-side forwarder (systemd + socat) publishes that NodePort on the VM, so the `openshell` CLI reaches the gateway at `127.0.0.1:30808` → Envoy → `svc/openshell`. That's exactly the path you used when `openshell status` said *Connected*:
+
+```bash
+openshell status
+```
+
+<Callout type="tip" title="Same pattern as production, minus the LB">
+On a real cluster you'd point a hostname + TLS at the Gateway and drop the NodePort/forwarder. The Gateway/GRPCRoute layer is identical — only the last hop (LoadBalancer vs. NodePort-on-a-host) changes. You're learning the real ingress, adapted to a single box.
+</Callout>
+
+<Callout type="rh" title="Platform complete">
+Cluster → gateway → Envoy ingress. That's the whole platform we pre-built. From here on, <strong>you</strong> build on top of it. Part III: create your agent.
+</Callout>

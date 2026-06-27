@@ -1,0 +1,62 @@
+The platform is already running — a MicroShift cluster with the **OpenShell gateway** on it (Parts II covered how). Now you do the interesting part by hand: **create your own agent.**
+
+In OpenShell, an agent is a **sandbox** — a pod the gateway creates, seals in its own network namespace, and governs. You ask for one with `openshell sandbox create`. Let's make one that runs **OpenClaw** (the agent framework).
+
+## 1. Confirm the gateway is listening
+
+Everything you do goes through the gateway. Check it answers (this is the Envoy-fronted endpoint from Part II):
+
+```bash
+openshell status
+```
+
+You want `Status: Connected` and a version. If not, see [Troubleshooting](/learn/troubleshooting).
+
+## 2. Render an egress policy
+
+OpenShell is **deny-by-default**: a fresh sandbox can reach *nothing* on the network. Your agent needs to reach exactly two things — the **inference endpoint** (its brain) and the **OpenClaw** hosts. The repo ships that policy as a template; render it with your inference host:
+
+```bash
+cd ~/nemoclaw-openshift-launchable
+set -a; . .env; set +a
+INFER_HOST=$(echo "$NEMOCLAW_INFERENCE_BASE_URL" | sed -E 's#https?://##; s#/.*##')
+sed "s/__INFERENCE_HOST__/${INFER_HOST}/g" policies/openclaw-sandbox.yaml > /tmp/agent-policy.yaml
+echo "Policy will allow egress to: $INFER_HOST + the OpenClaw hosts"
+```
+
+Open `/tmp/agent-policy.yaml` and read it — `network_policies` is a **map** of named rules, each pinning *which binary* may reach *which host*. That `{ host, port }` shape is the real OpenShell policy schema. (Part IV's *Control Plane & Policies* goes deep.)
+
+## 3. Create the sandbox
+
+One command. `--from` is the OpenClaw sandbox image (it ships the `openclaw` agent **and** `iproute2`, which the supervisor needs to build the network seal):
+
+```bash
+openshell sandbox create --name shifty \
+  --policy /tmp/agent-policy.yaml \
+  --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest \
+  -- sh -c 'sleep infinity'
+```
+
+The gateway allocates a pod, sideloads its **supervisor** (the per-pod component that seals the network and mints the sandbox identity), and applies your policy. The `-- sh -c 'sleep infinity'` is the workload: we keep the pod alive and start OpenClaw ourselves in the next lesson.
+
+## 4. Watch it come up
+
+```bash
+openshell sandbox list
+```
+
+Wait until your sandbox is **Ready**. The pod's *container* goes ready in a few seconds, but the gateway phase needs a moment longer while the supervisor finishes its bootstrap. The reliable signal is that `exec` works:
+
+```bash
+openshell sandbox exec -n shifty -- echo "supervisor ready"
+```
+
+When that prints `supervisor ready`, your agent's home is live.
+
+<Callout type="note" title="A sandbox IS a pod — but a sealed one">
+<code>oc -n openshell get pod shifty</code> shows it as a normal pod. But the agent runs in a <strong>private network namespace</strong> reachable only through the gateway's supervisor — a plain <code>oc exec</code> lands in the pod's main namespace, while <code>openshell sandbox exec</code> lands in the sealed agent context. You'll see why that matters in <a href="/learn/into-the-sandbox">Into a Sandbox</a>.
+</Callout>
+
+<Callout type="rh" title="What you just did">
+You declared an agent with one command and the gateway turned it into a governed pod on OpenShift — deny-by-default networking, a scoped identity, your policy. <strong>That's</strong> the OpenShell model. Next: give it a brain.
+</Callout>

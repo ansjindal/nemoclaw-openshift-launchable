@@ -1,18 +1,23 @@
-By the end you'll have a personal AI agent — **Shifty 🦞** — running inside your own single-node OpenShift cluster, reachable from your browser and ready to extend.
+You've created one agent, given it a brain, and made it yours. The hackathon challenge is to go further: build something **useful** out of what OpenShell does best — **governed agents that do real external work**, and **more than one of them**.
 
-## Meet Shifty
+## The shape of the challenge: a multi-agent app
 
-Shifty is an **OpenClaw** agent: a capable coding/automation agent with a web control UI. It comes pre-named and pre-briefed for this workshop (its identity and “soul” are seeded), so it boots already knowing who it is.
+A single sealed agent is powerful. Several, each with its own identity, policy, and job — coordinating — is a system. On this platform you can:
 
-- **Name:** Shifty · **Creature:** a container-native lobster 🦞 hatched in an OpenShift pod
-- **Vibe:** sharp, pragmatic, a little playful — talks to developers like a peer
+- **Spin up multiple sandboxes** (`openshell sandbox create`), each a specialist with a *different* egress policy — one may reach a data API, another a code host, another only inference.
+- **Give each a role** via its workspace identity (`IDENTITY.md` / `SOUL.md`), so they behave differently.
+- **Let them serve endpoints** (`openshell forward`) so a front agent, a tool agent, and a reviewer agent can be wired into one flow — and demoed at a URL.
 
-## What makes this different
+What it *does* is up to you — a research-and-summarize crew, a content pipeline, a triage-and-act assistant, a "build me X" team. The constraint that makes it interesting (and safe to run untrusted) is the same one you've been using: **each agent reaches only what its policy allows.**
 
-- **It runs on a real cluster** — actual OpenShift APIs, RBAC, and sandboxing.
-- **It's sandboxed by design** — Shifty runs as a Kubernetes Sandbox, and gateway-created agents add OpenShell supervisor/policy controls.
-- **It's yours to extend** — the deployment is fully scripted and repeatable; the baseline is your launch pad.
+<Callout type="note" title="What an OpenShell agent is — and isn't — for">
+These agents do <strong>governed external work</strong> (call APIs, models, services you allow) and serve results. They are deliberately <strong>sealed from the in-cluster Kubernetes API</strong> — that isolation is the product. Design your app around external tasks + multiple cooperating sandboxes, not around an agent administering the cluster it runs in.
+</Callout>
 
-<Callout type="note" title="No GPU, no problem">
-Shifty doesn't run a model locally — it calls a remote, OpenAI-compatible endpoint for its reasoning. A humble CPU VM is all you need.
+## We'll design this together
+
+The concrete brief — the exact app, the multi-agent topology, the starter scaffolding, and how submissions are scored — we'll work through live in the session. This page is the anchor; it'll fill in with the chosen challenge and the judging rubric.
+
+<Callout type="rh" title="Bring an idea">
+Come with one real task you'd hand to a small team of agents. The best demos are a judge clicking a URL and watching your agents <em>do the thing</em> — on real OpenShift, behind real policy guardrails.
 </Callout>

@@ -1,4 +1,4 @@
-Want your Cluster Copilot to reason about **metrics**, not just events? Add a full observability stack — and because it's the same OpenShell policy model, you choose exactly what the agent may read.
+Want to watch your **agent fleet** — CPU, memory, restarts, traffic — as you spin up more sandboxes? Add a full observability stack. This is for *you*, the operator: dashboards over the cluster and its agents.
 
 This phase is **opt-in** (it adds real load): enable it and re-run, or run the phase directly.
 
@@ -30,27 +30,13 @@ oc -n monitoring get pods
 Then browse the host's port **30030** (expose it as a Brev tunnel) and log in as `admin` / `openclaw`. Look for the **OpenShell Agent Fleet** dashboard plus the built-in Kubernetes dashboards.
 
 <Callout type="warn" title="It's not free">
-Prometheus + Loki + Tempo add CPU and memory pressure on a single 4-vCPU node. Leave it off for the core workshop; turn it on when you want the metrics-aware copilot.
+Prometheus + Loki + Tempo add CPU and memory pressure on a single 4-vCPU node. Leave it off for the core workshop; turn it on when you want the fleet dashboards.
 </Callout>
 
-## Let the copilot read metrics
+## Watch the fleet
 
-Remember the `cluster-copilot.yaml` policy from *Extending Shifty*? It already allows GET to Prometheus:
+Open the **OpenShell Agent Fleet** dashboard in Grafana. As you create more sandboxes (Part V's multi-agent app), each shows up here — CPU, memory, restarts per agent pod — plus the gateway's own health. This is your operator view of the whole agent fleet on one screen.
 
-```yaml
-  - name: prometheus
-    endpoints:
-      - host: kube-prometheus-stack-prometheus.monitoring.svc.cluster.local
-        port: 9090
-        enforcement: enforce
-    rules:
-      - { method: GET, path: /api/v1/** }   # /query, /query_range, ...
-```
-
-So a sandbox created with that policy can hit the Prometheus HTTP API — and nothing else new. Now your copilot can answer:
-
-> "Query Prometheus: which pods in `openclaw` are above their memory request right now?"
-
-<Callout type="rh" title="Same guardrail, new capability">
-You didn't open the agent up — you opened <em>one</em> read-only endpoint, declared in policy and enforced at the proxy. That's the OpenShell story: capability you can audit, line by line.
+<Callout type="note" title="Why the agents can't read Prometheus themselves">
+Prometheus lives <em>in-cluster</em> (a <code>10.43.*</code> ClusterIP). A gateway sandbox is network-sealed and only egresses to the <strong>external</strong> hosts its policy allows — it can't reach in-cluster services (that's the same isolation that keeps it off the Kubernetes API). Observability here is for <em>you</em>; if you want an agent to reason over metrics, expose a metrics API <em>externally</em> and allow that host in its policy.
 </Callout>

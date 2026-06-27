@@ -1,0 +1,55 @@
+When your Brev instance booted, the launchable pre-built everything **up to and including a running OpenShift-compatible cluster**, so you can spend your time on the agent, not on `kubeadm`. This lesson shows *how* that base was made — and lets you poke at it live.
+
+## What's underneath
+
+The cluster is **MicroShift** — Red Hat's edge-sized OpenShift — running **inside a podman container** (a setup often called MINC, "MicroShift-in-Container"). One VM, one container, one node, but real OpenShift APIs: `Routes`, `SecurityContextConstraints`, the works.
+
+```text
+Brev VM (Ubuntu)
+└── podman
+    └── microshift container  ← the "node"
+        └── MicroShift (single-node OpenShift)
+```
+
+The provisioning (you don't run these — they already ran) was, in essence:
+
+```bash
+# host deps: podman + tooling      (scripts/10-host-deps.sh)
+# CONTAINER_ENGINE=podman — docker breaks MINC's nested mounts
+# start MicroShift inside podman    (scripts/20-microshift.sh)
+# → writes a kubeconfig you can use with `oc`
+```
+
+## Inspect it live
+
+Your lab shell already has `oc` pointed at the cluster. Confirm the node is up:
+
+```bash
+oc get nodes
+```
+
+One `Ready` node = your whole cluster. Now look at what's already deployed for you:
+
+```bash
+oc get ns
+oc -n openshell get pods
+```
+
+You'll see the `openshell` namespace with the **gateway** (`openshell-0`) running — that's the agent control plane the next lessons use. (You won't see an agent yet — *you* create that in Part III.)
+
+It really is OpenShift — check an OpenShift-only API:
+
+```bash
+oc get scc --no-headers | head -5
+oc api-resources | grep -iE "route.openshift.io|security.openshift.io" | head
+```
+
+`SecurityContextConstraints` and `route.openshift.io` are OpenShift extensions a vanilla Kubernetes cluster doesn't have. That's the Red Hat layer your agents run on.
+
+<Callout type="tip" title="Why a container, not a VM-per-node">
+MINC makes the whole cluster a single disposable container — fast to boot on a Brev instance, and it still exercises the real OpenShift admission + SCC path your agents must satisfy. The trade-off (no cloud LoadBalancer) is why we expose things with a host forwarder — see the next two lessons.
+</Callout>
+
+<Callout type="rh" title="The base is done">
+A real single-node OpenShift, pre-built and Ready. Everything from here up — the gateway, the agent — sits on this. Next: the OpenShell gateway that turns this cluster into an agent platform.
+</Callout>

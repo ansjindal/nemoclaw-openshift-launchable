@@ -1,45 +1,42 @@
-You listed sandboxes with `oc get sandboxes -A`. Each one is reconciled into a **pod** — and that pod is where the OpenClaw agent (and its CLI) actually lives. To run *agent* commands, you go **into the sandbox**.
+You created `shifty` with `openshell sandbox create`. Each sandbox is reconciled into a **pod** — but a *sealed* one. To run *agent* commands you go **into the sandbox**, and there are two ways in that land in two different worlds. Understanding the difference is understanding OpenShell.
 
 ## A sandbox is a pod
 
 ```bash
-oc -n openclaw get pod openclaw-sandbox -o wide
+oc -n openshell get pod shifty -o wide
 ```
 
-The pod runs two containers: `openclaw` (the gateway/agent) and a helper. The agent CLI ships inside the `openclaw` container.
+It's a normal pod with an `agent` container. But the OpenClaw agent runs in a **private network namespace** the supervisor built — not the pod's main namespace.
 
-## Run a command inside it
+## Two ways in
 
-You reach the agent CLI with `oc exec` into that container. The CLI is `node dist/index.js`:
+**`oc exec`** lands in the pod's *main* namespace — full filesystem, but **not** the agent's sealed network:
 
 ```bash
-oc -n openclaw exec openclaw-sandbox -c openclaw -- node dist/index.js config validate
+oc -n openshell exec shifty -c agent -- sh -c 'echo HTTPS_PROXY="$HTTPS_PROXY"; ls /sandbox >/dev/null 2>&1 && echo "can see /sandbox" || echo "no /sandbox here"'
 ```
 
-That ran **inside the sandbox** — which is why it works: on the gateway host the CLI uses the gateway's local owner identity (no token/password needed).
-
-## The `openclaw` helper
-
-Typing that prefix every time is tedious, so this lab shell defines a helper that wraps it:
+**`openshell sandbox exec`** lands in the *agent's* sealed context — Landlock filesystem (`/sandbox`, `/tmp`) and the governed egress proxy. This is where the agent actually lives:
 
 ```bash
-type openclaw
+openshell sandbox exec -n shifty -- sh -c 'echo HTTPS_PROXY="$HTTPS_PROXY"; whoami; pwd'
 ```
 
-It's just:
+Notice the agent's shell has an `HTTPS_PROXY` pointing at the supervisor's egress proxy — every outbound call is forced through the policy. The `oc exec` shell doesn't. That gap *is* the seal.
+
+## Run the agent CLI
+
+The `openclaw` binary lives inside the sandbox; run it through the sealed exec:
 
 ```bash
-openclaw() { oc -n openclaw exec openclaw-sandbox -c openclaw -- node dist/index.js "$@"; }
-```
-
-So from here on, `openclaw <args>` means “run the agent CLI inside the sandbox.” Try the help:
-
-```bash
-openclaw --help
+openshell sandbox exec -n shifty -- openclaw --help
+openshell sandbox exec -n shifty -- openclaw config get
 ```
 
 <Callout type="tip" title="Mental model">
-<strong>OpenShell</strong> manages sandboxes (the control plane, via <code>oc</code>). <strong>Inside a sandbox</strong> you run the agent's own commands (via <code>oc exec</code>, wrapped as <code>openclaw …</code>). Keep the two layers straight and everything else clicks.
+<strong>OpenShell</strong> manages sandboxes from outside (the control plane: <code>openshell …</code> / <code>oc</code>). <strong>Inside a sandbox</strong> you run the agent's own commands with <code>openshell sandbox exec -n shifty -- openclaw …</code>. Use <code>oc exec</code> only for the pod's outer shell — it bypasses the agent's network seal, so it's not how the agent sees the world.
 </Callout>
 
-Now you're ready to read Shifty's brain, pair your browser, and add a model — all `openclaw …` commands that run inside the sandbox.
+<Callout type="rh" title="Why the seal matters">
+This is the same isolation that stops a gateway sandbox from reaching the in-cluster Kubernetes API: the agent only egresses through the governed proxy. You can inspect the pod from outside all you like; the agent itself is boxed in. That's what lets you run untrusted agents safely.
+</Callout>

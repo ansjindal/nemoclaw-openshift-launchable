@@ -81,42 +81,36 @@ Delete this file — you don't need a kickoff script once you're in flow.
 
 ## Read them live
 
-The files above are seeded into every Shifty. Read the real ones in your cluster:
+OpenClaw keeps these files in its **workspace** inside the sandbox. Locate it, then read the real ones — through the sealed exec (`HOME` is `/sandbox`):
 
 ```bash
-oc -n openclaw exec openclaw-sandbox -c openclaw -- ls -la /home/node/.openclaw/workspace
+WS=$(openshell sandbox exec -n shifty -- sh -c 'ls -d /sandbox/workspace 2>/dev/null || dirname $(find /sandbox -name SOUL.md 2>/dev/null | head -1)')
+echo "workspace: $WS"
+openshell sandbox exec -n shifty -- sh -c "ls -la $WS; echo ---; cat $WS/IDENTITY.md 2>/dev/null"
 ```
 
-```bash
-oc -n openclaw exec openclaw-sandbox -c openclaw -- cat /home/node/.openclaw/workspace/IDENTITY.md
-```
+If it's a `.git` repo, the agent **version-controls its own memory**.
 
-```bash
-oc -n openclaw exec openclaw-sandbox -c openclaw -- cat /home/node/.openclaw/workspace/SOUL.md
-```
-
-There's also a `.git` in there — the agent **version-controls its own memory**.
-
-<Callout type="note" title="Seeded, not hard-coded">
-These were placed by the launchable's <code>workspace-seed</code> (an initContainer copies them in, create-if-missing). On a fresh agent they appear automatically; your edits persist across sessions.
+<Callout type="note" title="Where they come from">
+A fresh OpenClaw agent starts with default identity files; the launchable's <code>workspace-seed</code> (<code>manifests/openclaw/workspace-seed/</code>) pre-fills the Shifty persona when you create the agent. Your edits persist for the life of the sandbox.
 </Callout>
 
 ## Make it yours
 
 Two ways to change these files.
 
-**Now, from the shell (no model needed).** You can read — and write — them directly. The files exist the moment the pod starts:
+**Now, from the shell (no model needed).** Read — and write — them directly through the sealed exec:
 
 ```bash
-oc -n openclaw exec openclaw-sandbox -c openclaw -- sh -c 'echo "- Always show the oc command before running it." >> /home/node/.openclaw/workspace/SOUL.md; tail -3 /home/node/.openclaw/workspace/SOUL.md'
+openshell sandbox exec -n shifty -- sh -c 'echo "- Always confirm before any external action." >> /sandbox/workspace/SOUL.md; tail -3 /sandbox/workspace/SOUL.md'
 ```
 
-**Later, by *asking the agent*** — the real workspace-as-memory move: open the OpenClaw UI and say *"Open your SOUL.md and add a rule: always show me the `oc` command before running it."* Shifty edits its own brain.
+**Later, by *asking the agent*** — the real workspace-as-memory move: open the OpenClaw UI and say *"Open your SOUL.md and add a rule: always confirm before posting anything externally."* Shifty edits its own brain.
 
 <Callout type="warn" title="Asking the agent needs it online">
-For Shifty to act on that request it must be able to <strong>think</strong> — which means you've <strong>paired your browser</strong> and <strong>added a model</strong> (both back in <em>Part III · Deploy &amp; Activate</em>). If you skipped those, the shell-edit above works regardless, or change the seed defaults in <code>manifests/openclaw/workspace-seed/</code> and redeploy.
+For Shifty to act on that request it must be able to <strong>think</strong> — so you've <strong>configured a model</strong> and <strong>paired your browser</strong> (Part III). If you skipped those, the shell-edit above works regardless.
 </Callout>
 
 <Callout type="tip" title="Why this matters for the hackathon">
-Your Cluster Copilot's behavior lives in <code>SOUL.md</code>/<code>AGENTS.md</code>. Want it to always confirm writes, or prefer read-only <code>oc</code>? Write it there — in English.
+Each agent's behaviour lives in its <code>SOUL.md</code>/<code>AGENTS.md</code> — so a multi-agent app gives each sandbox a different personality and set of boundaries, in plain English.
 </Callout>

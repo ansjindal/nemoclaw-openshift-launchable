@@ -1,0 +1,52 @@
+Your sandbox is up, but it's empty — no model, no running agent. OpenClaw reads its config from `~/.openclaw/openclaw.json` (inside the sandbox, `HOME` is `/sandbox`). Let's give it a model and start the **OpenClaw gateway** (its Control UI + agent runtime).
+
+## 1. Build the config from your inference endpoint
+
+This points OpenClaw at the remote inference endpoint (no local GPU here) and sets the Control-UI password. We build it on the host from `.env`, then stage it **into the sandbox** — and because the agent is Landlock-confined, we write it through `openshell sandbox exec` (base64, since exec doesn't take multi-line args):
+
+```bash
+cd ~/nemoclaw-openshift-launchable
+set -a; . .env; set +a
+PW="${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"
+OC=$(jq -n --arg url "$NEMOCLAW_INFERENCE_BASE_URL" --arg key "$NEMOCLAW_API_KEY" \
+  --arg model "$NEMOCLAW_MODEL" --arg pw "$PW" '{
+    gateway: { auth:{password:$pw}, remote:{password:$pw},
+               controlUi:{ dangerouslyAllowHostHeaderOriginFallback:true } },
+    agents:  { defaults:{ model:{ primary:("custom/"+$model) } } },
+    models:  { providers:{ custom:{ baseUrl:$url, apiKey:$key, api:"openai-completions",
+               models:[{id:$model,name:$model}] } } }
+  }')
+openshell sandbox exec -n shifty -- sh -c "mkdir -p /sandbox/.openclaw && echo $(printf '%s' "$OC" | base64 -w0) | base64 -d > /sandbox/.openclaw/openclaw.json"
+openshell sandbox exec -n shifty -- openclaw config validate
+```
+
+`Config valid` means OpenClaw accepted it.
+
+<Callout type="note" title="Why stage through the gateway, not oc cp">
+The agent is sealed under <strong>Landlock</strong> — it can only read <code>/sandbox</code> and <code>/tmp</code>. A file you <code>oc cp</code> into <code>/workspace</code> is invisible to it. Writing through <code>openshell sandbox exec</code> lands in the agent's real view. Same isolation, everywhere.
+</Callout>
+
+## 2. Start the OpenClaw gateway
+
+Launch it on port `18789` (LAN bind so we can expose it next), password auth:
+
+```bash
+openshell sandbox exec -n shifty -- sh -c \
+  'cd /sandbox && nohup openclaw gateway run --port 18789 --bind lan --auth password --password '"${PW:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 & sleep 6; tail -4 /sandbox/gateway.log'
+```
+
+You're looking for `listening on ws://0.0.0.0:18789`. That's the agent's Control UI + WebSocket gateway, running inside the sealed sandbox.
+
+## 3. Prove the brain works
+
+Have the agent run one turn — this call goes through the **deny-by-default policy** to your inference endpoint and back:
+
+```bash
+openshell sandbox exec -n shifty -- sh -c 'cd /sandbox && openclaw agent --agent main -m "Reply with exactly: PONG" --session-id smoke'
+```
+
+If it answers, inference is reachable *through the policy* — the only egress your agent was granted. Try changing the model later with `openclaw config set` and re-running.
+
+<Callout type="rh" title="The privacy boundary, made real">
+That reply travelled: agent → supervisor egress proxy → (policy check: is this host allowed for <code>node</code>?) → your inference endpoint. Nothing else gets out. Next: open the UI in your browser.
+</Callout>

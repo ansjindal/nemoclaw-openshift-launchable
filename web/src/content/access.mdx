@@ -1,21 +1,38 @@
-The stack is up, and both web UIs are already published as host ports — so **Brev gives you a clickable URL for each on your instance page**. Just open them; no shell, no port-forward.
+Your agent's Control UI is running on port `18789` — but **inside the sealed sandbox's private network namespace**. A NodePort can't reach it (that's the same isolation that protects the agent). The one thing that bridges into a sandbox is the gateway's own port-forward: `openshell forward`.
 
-## Open the OpenClaw UI
+## Expose the UI to the host
 
-On your Brev instance page, open the tunnel for port **`30789`** in a browser. Log in with the workshop password.
+Point `openshell forward` at your sandbox + the UI port, binding `0.0.0.0` so a Brev tunnel can reach it:
 
-First connection will ask for **device pairing** — that's the next lesson.
+```bash
+openshell forward start 0.0.0.0:18789 shifty --background
+openshell forward list
+```
 
-## Open the OpenShift console
+Confirm it's serving on the host:
 
-If the console phase ran, open the Brev tunnel for port **`30900`** and go to **`/console/`**.
+```bash
+curl -s -o /dev/null -w "OpenClaw UI: HTTP %{http_code}\n" http://127.0.0.1:18789/
+```
+
+`HTTP 200` means the bridge is live: host `:18789` → gateway → supervisor → the agent's UI.
+
+<Callout type="note" title="Why not a NodePort like the gateway?">
+The OpenShell <em>gateway</em> is a normal Service, so Envoy/NodePort fronts it. A <em>sandbox</em> is network-sealed — its listening port lives in a private namespace, so only <code>openshell forward</code> (which tunnels <em>through</em> the gateway + supervisor) can reach it. Stop it later with <code>openshell forward stop</code>; one forward per port.
+</Callout>
+
+## Open it in your browser
+
+On your Brev instance page, open the tunnel for port **`18789`**. You'll get the OpenClaw Control UI; log in with the gateway password (`openclaw` unless you changed `OPENCLAW_GATEWAY_PASSWORD`).
+
+If Brev doesn't list `18789`, add it as a tunnel on the instance page and refresh — it's a plain host port now.
+
+## Also: the OpenShift console (optional)
+
+If the console phase ran, open the Brev tunnel for port **`30900`** at **`/console/`**.
 
 <Callout type="note" title="Console shows ‘no resources’?">
-Expected — MicroShift lacks the OpenShift <code>project.openshift.io</code> API the console scopes to. Switch the **Project dropdown to “All Projects”**, or browse <code>/console/k8s/all-namespaces/pods</code>.
+Expected — MicroShift lacks the OpenShift <code>project.openshift.io</code> API the console scopes to. Switch the <strong>Project dropdown to “All Projects”</strong>, or browse <code>/console/k8s/all-namespaces/pods</code>.
 </Callout>
 
-<Callout type="tip" title="Don't see the tunnels?">
-Brev exposes a URL per published host port on your instance page. If a port isn't listed, add it there — these are plain host ports (<code>30789</code>, <code>30900</code>), no extra setup.
-</Callout>
-
-Next: pair your browser, then teach Shifty about a model.
+Next: the first browser connection asks for **device pairing** — approve it.
