@@ -9,14 +9,19 @@ load_env
 
 log "NemoClaw-on-MicroShift launchable: starting provision"
 
+# Pre-provision the PLATFORM up to and including the OpenShell gateway (the slow,
+# finicky parts). Creating the OpenClaw AGENT is left as a HANDS-ON lesson — participants
+# run scripts/45-openclaw.sh (or its commands) themselves against the live gateway.
 "$HERE/00-preflight.sh"
 "$HERE/10-host-deps.sh"
 "$HERE/20-microshift.sh"
-"$HERE/30-openshell.sh"
-"$HERE/45-openclaw.sh"   # OpenClaw agent as a Sandbox in OpenShift (deploys even without model creds)
+"$HERE/30-openshell.sh"          # OpenShell gateway (Helm) + Envoy Gateway ingress
+# NOTE: phase 45 (create the OpenClaw agent) is intentionally NOT run here — it's the
+# first hands-on step participants do. Set PROVISION_AGENT=true to pre-create it anyway.
+[[ "${PROVISION_AGENT:-false}" == "true" ]] && "$HERE/45-openclaw.sh"
 
-# The remaining phases are best-effort: a hiccup here must NOT fail the whole provision —
-# the agent is already up. Log and continue so the launchable always finishes "ready".
+# The remaining phases are best-effort: a hiccup here must NOT fail the whole provision.
+# Log and continue so the launchable always finishes "ready".
 "$HERE/50-expose-nodeports.sh" || warn "phase 50 (NodePort forwarder) failed — UIs may need a manual 'oc port-forward' or service restart."
 
 # OpenShift/OKD web console (unauthenticated, cluster-admin — workshop/ephemeral use only).
@@ -36,9 +41,10 @@ if [[ "${DEPLOY_MONITORING:-false}" == "true" ]]; then
   "$HERE/80-monitoring.sh" || warn "phase 80 (monitoring) failed — non-fatal; the core stack is still up."
 fi
 
-log "Done. Stack is up:"
-log "  • Workshop site  : http://<host>:${WORKSHOP_PORT:-3000}/   (start here — interactive lessons + live shell)"
+log "Done. Platform is up — now build your agent in the workshop:"
+log "  • Workshop site  : http://<host>:${WORKSHOP_PORT:-3000}/   (START HERE — step-by-step lessons + live shell)"
 log "  • MicroShift API : KUBECONFIG=$(kubeconfig_path) oc get nodes"
-log "  • OpenShell gw   : oc -n ${OPENSHELL_NAMESPACE:-openshell} get route openshell-gateway"
-log "  • OpenClaw UI    : http://<host>:${OPENCLAW_UI_PORT:-18789}/  (gateway sandbox '${OPENCLAW_AGENT_NAME:-shifty}', via openshell forward; password: ${OPENCLAW_GATEWAY_PASSWORD:-openclaw})"
+log "  • OpenShell gw   : openshell status   (host :30808 via Envoy Gateway)"
 log "  • OpenShift console : http://<host>:30900/console/"
+log "  → Create your OpenClaw agent hands-on in the workshop (it is NOT pre-provisioned)."
+log "    Once created, its UI is http://<host>:${OPENCLAW_UI_PORT:-18789}/ (password: ${OPENCLAW_GATEWAY_PASSWORD:-openclaw})."

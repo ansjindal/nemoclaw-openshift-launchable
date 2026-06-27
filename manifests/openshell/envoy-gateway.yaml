@@ -1,0 +1,100 @@
+# Envoy Gateway (Gateway API) ingress for the OpenShell gateway — the standard
+# OpenShell exposure (docs.nvidia.com/openshell/kubernetes/ingress), adapted for a
+# single node with NO cloud LoadBalancer (MicroShift-in-podman, like k3s): we pin the
+# Envoy proxy Service to a NodePort via an EnvoyProxy resource, then the host forwarder
+# publishes that NodePort. The openshell CLI reaches the gateway at <host>:30808 → Envoy
+# → GRPCRoute → svc/openshell:8080.
+#
+# Prereq: Envoy Gateway controller installed (helm, phase 30) + on OpenShift the
+# envoy-gateway-system SA group needs anyuid+privileged SCC (else the certgen pre-install
+# hook times out). The gateway's own Service is ClusterIP — Envoy fronts it.
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: nemoclaw-envoy
+  namespace: envoy-gateway-system
+spec:
+  provider:
+    type: Kubernetes
+    kubernetes:
+      envoyService:
+        type: NodePort
+        patch:
+          type: StrategicMerge
+          value:
+            spec:
+              ports:
+                # gRPC: the OpenShell gateway. Pinned to 30808 so the existing host
+                # socat forwarder + `openshell gateway add http://127.0.0.1:30808` work.
+                - name: grpc-8080
+                  port: 8080
+                  protocol: TCP
+                  targetPort: 8080
+                  nodePort: 30808
+                # HTTP web listener (path-routed UIs, e.g. a console) — reserved.
+                # Envoy non-root binds privileged :80 as targetPort 10080.
+                - name: http-80
+                  port: 80
+                  protocol: TCP
+                  targetPort: 10080
+                  nodePort: 30880
+      envoyDeployment:
+        replicas: 1
+        container:
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { memory: 512Mi }
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: eg
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+  parametersRef:
+    group: gateway.envoyproxy.io
+    kind: EnvoyProxy
+    name: nemoclaw-envoy
+    namespace: envoy-gateway-system
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: nemoclaw-gw
+  namespace: envoy-gateway-system
+spec:
+  gatewayClassName: eg
+  listeners:
+    - name: grpc            # OpenShell gateway (gRPC / h2c)
+      protocol: HTTP
+      port: 8080
+      allowedRoutes:
+        namespaces: { from: All }
+    - name: web             # reserved for path-routed HTTP UIs
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces: { from: All }
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: nemoclaw-envoy
+---
+# gRPC route for the OpenShell gateway. Co-located with svc/openshell (openshell ns)
+# so no ReferenceGrant is needed; attaches cross-namespace to the grpc listener.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: openshell-grpc
+  namespace: openshell
+spec:
+  parentRefs:
+    - name: nemoclaw-gw
+      namespace: envoy-gateway-system
+      sectionName: grpc
+  rules:
+    - backendRefs:
+        - name: openshell
+          port: 8080
