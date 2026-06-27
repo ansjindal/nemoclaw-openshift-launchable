@@ -41,10 +41,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, name: logsFor, source, text: out });
     }
 
-    // --- per-sandbox effective-policy metadata ---
+    // --- per-sandbox effective policy (full YAML: filesystem, process, network rules) ---
     if (policyFor) {
       if (!validName(policyFor)) return NextResponse.json({ ok: false, error: "bad name" });
-      const out = await openshell(["policy", "get", policyFor]).catch((e) => `(${e instanceof Error ? e.message : e})`);
+      const out = await openshell(["policy", "get", policyFor, "--full"]).catch((e) => `(${e instanceof Error ? e.message : e})`);
       return NextResponse.json({ ok: true, name: policyFor, text: out });
     }
 

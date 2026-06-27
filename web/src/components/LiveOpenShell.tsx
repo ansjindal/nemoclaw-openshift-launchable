@@ -154,7 +154,7 @@ export function LiveOpenShell() {
       )}
 
       <p className="mt-2 text-[10px] text-[var(--color-fg-mut)]">
-        Click a sandbox for its <strong>logs/audit</strong> (<code>openshell logs &lt;name&gt; --source …</code>) and <strong>policy</strong> (<code>openshell policy get &lt;name&gt;</code>). Served read-only via <code>/api/openshell</code>.
+        Click a sandbox for its <strong>logs/audit</strong> (<code>openshell logs &lt;name&gt; --source …</code>) and full <strong>policy</strong> (<code>openshell policy get &lt;name&gt; --full</code>). Served read-only via <code>/api/openshell</code>.
       </p>
     </figure>
   );
