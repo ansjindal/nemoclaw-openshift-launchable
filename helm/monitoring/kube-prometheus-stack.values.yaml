@@ -46,10 +46,13 @@ alertmanager:
 grafana:
   enabled: true
   defaultDashboardsEnabled: true
-  # Land on the pre-loaded Agent Fleet dashboard when Grafana opens (the sidecar writes
-  # labelled dashboard ConfigMaps to /tmp/dashboards/). Reached directly via the Brev
-  # grafana link → NodePort 30030, so no sub-path.
+  # Served under /grafana so the workshop site proxies it same-origin (Next rewrite in
+  # web/next.config.ts) — one Brev URL, no separate grafana tunnel. Land on the pre-loaded
+  # Agent Fleet dashboard (the sidecar writes labelled dashboard ConfigMaps to /tmp/dashboards/).
   grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s/grafana/"
+      serve_from_sub_path: true
     dashboards:
       default_home_dashboard_path: /tmp/dashboards/agent-fleet.json
   service:

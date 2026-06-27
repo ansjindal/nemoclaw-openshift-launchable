@@ -39,14 +39,18 @@ export function LearnShell({ children }: { children: ReactNode }) {
         </aside>
       )}
       {!open && (
-        <button
-          onClick={() => setOpen(true)}
-          className="fixed left-3 top-20 z-30 hidden items-center gap-2 rounded-lg border border-[var(--color-line-2)] bg-[var(--color-panel)] px-3 py-2 text-xs font-semibold text-[var(--color-fg-dim)] shadow-[0_8px_24px_rgba(0,0,0,0.18)] transition hover:border-[var(--color-nv-dim)] hover:text-[var(--color-fg)] lg:inline-flex"
-          title="Show lessons"
-        >
-          <PanelLeftOpen size={15} />
-          Lessons
-        </button>
+        <aside className="hidden w-12 shrink-0 border-r border-[var(--color-line)] bg-[var(--color-bg)] lg:block">
+          <div className="sticky top-14 flex flex-col items-center gap-3 px-2 py-4">
+            <button
+              onClick={() => setOpen(true)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-line-2)] text-[var(--color-fg-mut)] transition hover:bg-[var(--color-panel)] hover:text-[var(--color-fg)]"
+              title="Show lessons"
+            >
+              <PanelLeftOpen size={15} />
+            </button>
+            <BookOpen size={15} className="text-[var(--color-nv-bright)]" />
+          </div>
+        </aside>
       )}
       <main className={`min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 ${open ? "" : "xl:px-12"}`}>
         {!open && (

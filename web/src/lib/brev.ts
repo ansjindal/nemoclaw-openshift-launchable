@@ -15,7 +15,7 @@ const EVT = "brevid:change";
 type Svc = { label: string; path?: string; sub?: string; suffix?: string };
 export const BREV_SERVICES: Record<string, Svc> = {
   openclaw:  { label: "OpenClaw UI", sub: "openclaw" },                           // subdomain + ID
-  grafana:   { label: "Grafana", sub: "grafana" },                               // subdomain + ID
+  grafana:   { label: "Grafana", path: "/grafana" },                             // same-origin proxy (no ID)
   openshift: { label: "OpenShift console", sub: "openshift", suffix: "/console/" }, // subdomain + ID
 };
 export type BrevService = keyof typeof BREV_SERVICES;
