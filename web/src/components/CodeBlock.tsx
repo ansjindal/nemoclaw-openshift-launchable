@@ -1,6 +1,15 @@
 "use client";
 import { useState, type ReactNode, isValidElement } from "react";
+import hljs from "highlight.js/lib/core";
+import bash from "highlight.js/lib/languages/bash";
+import yaml from "highlight.js/lib/languages/yaml";
+import json from "highlight.js/lib/languages/json";
+import "highlight.js/styles/github-dark.css";
 import { runInShell } from "@/lib/labBus";
+
+hljs.registerLanguage("bash", bash);
+hljs.registerLanguage("yaml", yaml);
+hljs.registerLanguage("json", json);
 
 function extractText(node: ReactNode): string {
   if (node == null || typeof node === "boolean") return "";
@@ -26,10 +35,17 @@ function getLang(node: ReactNode): string {
 }
 
 const SHELL_LANGS = ["bash", "sh", "shell", "console", "zsh"];
+// Map a fence language to a registered highlight.js grammar (or null = render plain).
+function hljsLang(lang: string): string | null {
+  if (lang === "" || SHELL_LANGS.includes(lang)) return "bash";
+  if (lang === "yaml" || lang === "yml") return "yaml";
+  if (lang === "json") return "json";
+  return null; // text, md, … → no highlighting
+}
 
-// Override for MDX <pre>: code blocks get a Copy toolbar, and shell blocks with at least
-// one real command also get a "Run in shell" button. Non-shell fences (text, yaml, md,
-// json, …) and comment-only blocks are illustrative — Copy only, no Run.
+// Override for MDX <pre>: syntax-highlighted code with a Copy toolbar, plus a "Run in
+// shell" button on shell blocks that contain at least one real command. Non-shell fences
+// (text, yaml, md, json) and comment-only blocks are illustrative — Copy only, no Run.
 export function CodeBlock({ children }: { children?: ReactNode }) {
   const code = extractText(children).replace(/\n$/, "");
   const lang = getLang(children);
@@ -39,6 +55,12 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
   const hasCommand = code.split("\n").some((l) => l.trim() !== "" && !/^\s*#/.test(l));
   const runnable = isShell && hasCommand;
   const label = lang || "shell";
+
+  const grammar = hljsLang(lang);
+  let html: string | null = null;
+  if (grammar) {
+    try { html = hljs.highlight(code, { language: grammar }).value; } catch { html = null; }
+  }
 
   return (
     <div className="group relative my-5 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-code-bg)]">
@@ -62,7 +84,11 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
           </button>
         </div>
       </div>
-      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-[var(--color-code-fg)]">{children}</pre>
+      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed">
+        {html
+          ? <code className={`hljs language-${grammar}`} style={{ background: "transparent", padding: 0 }} dangerouslySetInnerHTML={{ __html: html }} />
+          : <code className="text-[var(--color-code-fg)]">{code}</code>}
+      </pre>
     </div>
   );
 }
