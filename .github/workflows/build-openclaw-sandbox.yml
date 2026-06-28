@@ -1,0 +1,48 @@
+name: build-openclaw-sandbox
+
+# Builds the custom OpenClaw sandbox image (community base + a newer OpenClaw, for the
+# DuckDuckGo web-search plugin) and publishes it to GHCR under this repo's owner. Run it
+# from the Actions tab (Run workflow), or it triggers when the Dockerfile/workflow changes.
+#
+# After the first run, make the resulting package PUBLIC (GitHub → your profile → Packages →
+# openclaw-sandbox → Package settings → Change visibility → Public) so the MicroShift node
+# can pull it without a pull secret. Then pin OPENCLAW_SANDBOX_IMAGE to:
+#   ghcr.io/<owner>/openclaw-sandbox:2026.6.10
+
+on:
+  workflow_dispatch:
+    inputs:
+      openclaw_version:
+        description: OpenClaw npm version to bake in
+        default: "2026.6.10"
+  push:
+    paths:
+      - images/openclaw-sandbox/Dockerfile
+      - .github/workflows/build-openclaw-sandbox.yml
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.event.inputs.openclaw_version || '2026.6.10' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: images/openclaw-sandbox
+          push: true
+          build-args: |
+            OPENCLAW_VERSION=${{ env.VERSION }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/openclaw-sandbox:${{ env.VERSION }}
+            ghcr.io/${{ github.repository_owner }}/openclaw-sandbox:latest
