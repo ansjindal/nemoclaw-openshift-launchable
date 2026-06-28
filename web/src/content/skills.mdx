@@ -95,6 +95,12 @@ openshell sandbox exec -n shifty -- openclaw plugins list
 
 You'll see **Hello World** — `enabled`, version `0.1.0`, "Registers a `hello` tool and ships a matching skill." So the agent installs from ClawHub — but only the packages you let through.
 
+<Callout type="note" title="Three CLI things you'll hit">
+<strong>Loading is deferred:</strong> <code>install</code> / <code>enable</code> / <code>disable</code> only change files + config — they take effect when the gateway <em>restarts</em>. This lesson installs several skills and restarts <strong>once</strong> at the end (step 8), so <code>plugins list</code> showing <code>enabled</code> means "configured", not "live yet".<br/>
+<strong>Filtering the list:</strong> <code>plugins list</code> includes every stock provider. Narrow it with <code>--enabled</code>, or <code>--json</code> piped to <code>grep</code>/<code>jq</code> — or just <code>… plugins list | grep -i hello</code>.<br/>
+<strong>Noise:</strong> the <code>[UNDICI-EHPA]</code> lines are harmless Node experimental warnings — prefix any command with <code>NODE_NO_WARNINGS=1</code> to silence them (omitted below for brevity).
+</Callout>
+
 <Callout type="note" title="Blocklist, not a one-line allowlist">
 This is a <strong>blocklist</strong>: deny the packages you don't trust. OpenShell's L7 model is default-allow once a host is granted, and <strong>deny rules win over allow rules</strong> — so you can't write "allow only package X" in a single rule (a <code>deny /packages/**</code> would also kill X). The practical recipe: allow ClawHub as a source, <code>--add-deny</code> the packages you reject, and — next — enable only the skills you bless.
 </Callout>
@@ -113,6 +119,10 @@ HTTP:GET  ALLOWED .../packages/openclaw-hello-world/download   [policy:allow_cla
 ```
 
 Both decisions are fully attributable — the rule that decided (`allow_clawhub_ai_443`), the exact package URL, the binary (`/usr/bin/node`), the layer (`l7`). In production these stream to your SIEM: every skill install, allowed or blocked, logged and traceable to the policy that governed it. That's the answer to *"can I prove which skills my agents pulled — and which I refused?"* — yes, down to the package.
+
+<Callout type="note" title="Seeing nothing from that grep?">
+Those <code>packages/…</code> path lines only appear when ClawHub is in <strong>L7 enforce</strong> mode (the <code>:rest:enforce</code> endpoint from step 2) — that's what lets the proxy read the HTTP path. If ClawHub is allowed as a plain <code>:full</code> tunnel (L4), the proxy can't see the path, so there's nothing to match; grep <code>clawhub.ai</code> instead and you'll see the <code>NET:OPEN</code> ALLOW/DENY line. And if you're already locked down (step 7), ClawHub is denied outright — you'll see <code>NET:OPEN … DENIED clawhub.ai:443</code>.
+</Callout>
 
 ## 4. Governance, layer two — *which skills run* (OpenClaw allowlist)
 
@@ -141,7 +151,11 @@ Community plugins must resolve their own runtime dependencies. If one fails on r
 
 ## 5. Author your own skill
 
-A skill is a small **TypeScript plugin** — and now that npm works inside the sandbox (the `allow_encoded_slash` fix above unblocked scoped deps), you can scaffold, build, and install one **end-to-end without leaving it**.
+A skill is a small **TypeScript plugin** built against the **OpenClaw plugin SDK**. That SDK ships *inside the sandbox image* — it isn't a public npm package — so the sandbox **is** your skill dev environment. You author and build here, then (next section) **publish to your registry** so the locked agent installs it like any other skill. In production this exact build runs in **CI from the same image**; the steps below are identical.
+
+<Callout type="note" title="Why not author on your laptop?">
+Because the toolchain lives in the image: <code>openclaw/plugin-sdk</code> (and the <code>openclaw</code> CLI) are only present in the sandbox image, not on npmjs. So you build <em>where the SDK is</em> — the sandbox here, or a container from the same image in CI — and the registry is what carries the result out to the agent. The sandbox is the dev box; the agent is the locked runtime; the registry is the bridge.
+</Callout>
 
 Scaffold a project:
 
