@@ -39,7 +39,7 @@ Restart the gateway to apply (same command as in *Give It a Brain*):
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
-  'cd /sandbox && [ -f gateway.pid ] && kill "$(cat gateway.pid)" 2>/dev/null; sleep 1; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password openshell-wad26 --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; sleep 6; grep -E "listening on ws|heartbeat" /sandbox/gateway.log | tail -3'
+  'pkill -f "openclaw gateway run"; sleep 1; cd /sandbox && setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password openshell-wad26 --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & sleep 6; grep -E "listening on ws|heartbeat" /sandbox/gateway.log | tail -3'
 ```
 
 ## 3. Watch a beat happen

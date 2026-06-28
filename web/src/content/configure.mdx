@@ -54,12 +54,16 @@ The agent is sealed under <strong>Landlock</strong> — it can only read <code>/
 
 So far the sandbox has just been **idling** — `create` only ran `true`, and the supervisor keeps the pod alive. Now we launch **OpenClaw** inside it, with the config you just wrote — on port `30789` (LAN bind so we can expose it next), password auth.
 
-We start it under `setsid` so it runs in its **own session** and keeps running after this command returns (a plain background process would be killed when the `exec` session ends). We also record its PID to `/sandbox/gateway.pid` and kill any previous instance first — so this same command is how you **restart** OpenClaw to pick up later config changes (run it again any time):
+We start it under `setsid` so it runs in its **own session** and keeps running after this command returns (a plain background process would be killed when the `exec` session ends). We `pkill` any previous instance first — so this same command is also how you **restart** OpenClaw to pick up later config changes (run it again any time):
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
-  'cd /sandbox && [ -f gateway.pid ] && kill "$(cat gateway.pid)" 2>/dev/null; sleep 1; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${PW:-openshell-wad26}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; sleep 6; grep -E "listening on ws|Browser control" /sandbox/gateway.log'
+  'pkill -f "openclaw gateway run"; sleep 1; cd /sandbox && setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${PW:-openshell-wad26}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & sleep 6; grep -E "listening on ws|Browser control" /sandbox/gateway.log'
 ```
+
+<Callout type="note" title="Why not `openclaw gateway restart`?">
+There <em>is</em> an <code>openclaw gateway restart</code> — but it manages an <strong>installed OS service</strong> (systemd/launchd). This sandbox is a minimal container with no init system, so we run the gateway in the foreground ourselves. (<code>gateway run --force</code> won't help either: it needs <code>fuser</code>/<code>lsof</code> to free the port, and neither ships in the image.) Hence <code>pkill</code> + <code>setsid nohup</code> — the portable way to restart a foreground process in here.
+</Callout>
 
 The line that matters is **`listening on ws://0.0.0.0:30789`** — that's your agent's Control UI + WebSocket gateway (the port your Brev `openclaw` link maps to), running inside the sealed sandbox.
 
