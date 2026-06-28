@@ -8,19 +8,32 @@ import { PanelRightClose, PanelRightOpen, RotateCcw, TerminalSquare } from "luci
 // On small screens it stacks below the content.
 export function LabSplit({ children }: { children: ReactNode; slug?: string }) {
   const [shellPct, setShellPct] = useState(44); // % width of the shell column (desktop)
-  const [show, setShow] = useState(true);
+  // Hidden by default — the shell appears only when the reader runs a command
+  // (Run-in-shell) or explicitly opens it. An explicit open/close is remembered;
+  // an auto-open from a command is transient (next page starts hidden again).
+  const [show, setShow] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Explicit user toggle — remembered across pages.
+  function setShowManual(next: boolean) {
+    setShow(next);
+    try { window.localStorage.setItem("oclaw:shell-open", String(next)); } catch {}
+  }
 
   useEffect(() => {
     const savedShow = window.localStorage.getItem("oclaw:shell-open");
     const savedPct = Number(window.localStorage.getItem("oclaw:shell-pct"));
-    if (savedShow === "false") setShow(false);
+    if (savedShow === "true") setShow(true); // only an explicit prior open reveals it
     if (Number.isFinite(savedPct) && savedPct >= 26 && savedPct <= 68) setShellPct(savedPct);
   }, []);
 
+  // Running a command (runInShell → oclaw:start-shell) reveals the shell so the
+  // reader can see the output. This open is transient — it isn't persisted.
   useEffect(() => {
-    window.localStorage.setItem("oclaw:shell-open", String(show));
-  }, [show]);
+    const onStart = () => setShow(true);
+    window.addEventListener("oclaw:start-shell", onStart);
+    return () => window.removeEventListener("oclaw:start-shell", onStart);
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem("oclaw:shell-pct", String(shellPct));
@@ -51,7 +64,7 @@ export function LabSplit({ children }: { children: ReactNode; slug?: string }) {
         <div className="prose max-w-none xl:max-w-6xl">
           {children}
         </div>
-        <button onClick={() => setShow(true)} className="fixed bottom-4 right-4 z-30 rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-panel)] px-4 py-2 text-sm font-semibold text-[var(--color-nv-bright)] shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition hover:bg-[var(--color-bg-2)]">
+        <button onClick={() => setShowManual(true)} className="fixed bottom-4 right-4 z-30 rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-panel)] px-4 py-2 text-sm font-semibold text-[var(--color-nv-bright)] shadow-[0_8px_24px_rgba(0,0,0,0.22)] transition hover:bg-[var(--color-bg-2)]">
           <span className="inline-flex items-center gap-2"><PanelRightOpen size={15} /> Show shell</span>
         </button>
       </div>
@@ -86,7 +99,7 @@ export function LabSplit({ children }: { children: ReactNode; slug?: string }) {
               <RotateCcw size={14} />
             </button>
             <button
-              onClick={() => setShow(false)}
+              onClick={() => setShowManual(false)}
               className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-line-2)] text-[var(--color-fg-mut)] transition hover:bg-[var(--color-bg-2)] hover:text-[var(--color-fg)]"
               title="Hide shell"
             >

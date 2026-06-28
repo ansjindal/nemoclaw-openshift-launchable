@@ -6,3 +6,4 @@ minc
 # workshop web app build artifacts
 web/node_modules
 web/.next
+web/tsconfig.tsbuildinfo
