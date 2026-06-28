@@ -93,7 +93,7 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
           </button>
         </div>
       </div>
-      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed">
+      <pre className="whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed">
         {html
           ? <code className={`hljs language-${grammar}`} style={{ background: "transparent", padding: 0 }} dangerouslySetInnerHTML={{ __html: html }} />
           : <code className="text-[var(--color-code-fg)]">{code}</code>}

@@ -14,7 +14,48 @@ You'll get a short catalog, each line ending with its install command — e.g. `
 ClawHub lives at <code>clawhub.ai</code> + <code>hub.openclaw.ai</code>. Your sandbox is deny-by-default, so that search only worked because those hosts are in the <code>openclaw</code> rule of your policy. Allowing exactly those two hosts is how you say <em>"skills may come from ClawHub — and nowhere else."</em>
 </Callout>
 
-## 2. Install a verified skill
+## 2. Install a skill — the policy decides where from
+
+Before the happy path, watch deny-by-default work. Try installing a skill from a source your policy **doesn't** list — a GitHub repo:
+
+```bash
+openshell sandbox exec -n shifty -- openclaw plugins install git:github.com/openclaw/example-plugin
+```
+
+It's refused before any code arrives:
+
+```text
+failed to clone openclaw/example-plugin: ... CONNECT tunnel failed, response 403
+```
+
+That `403` is the supervisor's egress proxy denying the connection. The audit trail names exactly what it blocked:
+
+```bash
+openshell logs shifty --source sandbox | grep -i github
+```
+
+```text
+NET:OPEN  DENIED /usr/lib/git-core/git-remote-http -> github.com:443 [engine:opa]
+          [reason: endpoint github.com:443 is not allowed by any policy]
+```
+
+So a skill can only be pulled from a host your policy allows. Here's the rule that governs it — the `openclaw` block of your sandbox policy:
+
+```yaml
+network_policies:
+  openclaw:
+    endpoints:
+      - { host: clawhub.ai, port: 443, access: full }       # ClawHub registry
+      - { host: hub.openclaw.ai, port: 443, access: full }  # …its package CDN
+      - { host: registry.npmjs.org, port: 443, access: full }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/node }
+      - { path: /usr/bin/npm }
+      - { path: /usr/local/bin/npm }
+```
+
+`github.com` isn't on that list, so the install was denied. `clawhub.ai` **is** — so a ClawHub install goes through. Install the verified hello-world skill:
 
 ```bash
 openshell sandbox exec -n shifty -- openclaw plugins install clawhub:openclaw-hello-world
@@ -26,7 +67,7 @@ It downloads from ClawHub and registers. Confirm it's there:
 openshell sandbox exec -n shifty -- openclaw plugins list
 ```
 
-You'll see **Hello World** — `enabled`, version `0.1.0`, "Registers a `hello` tool and ships a matching skill." Your agent just gained a capability.
+You'll see **Hello World** — `enabled`, version `0.1.0`, "Registers a `hello` tool and ships a matching skill." Your agent just gained a capability — from a source you explicitly allowed.
 
 ## 3. Governance, layer one — *where skills come from* (OpenShell)
 
