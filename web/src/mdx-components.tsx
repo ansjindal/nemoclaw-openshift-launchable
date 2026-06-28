@@ -13,6 +13,7 @@ import { OpenShellConsole } from "@/components/diagrams/OpenShellConsole";
 import { PolicyExplorer } from "@/components/diagrams/PolicyExplorer";
 import { SandboxFlow } from "@/components/diagrams/SandboxFlow";
 import { SecurityLayers } from "@/components/diagrams/SecurityLayers";
+import { SkillSupplyChain } from "@/components/diagrams/SkillSupplyChain";
 import { LiveOpenShell } from "@/components/LiveOpenShell";
 import { ServiceLink } from "@/components/ServiceLink";
 
@@ -30,6 +31,7 @@ const components: MDXComponents = {
   PolicyExplorer,
   SandboxFlow,
   SecurityLayers,
+  SkillSupplyChain,
   LiveOpenShell,
   ServiceLink,
   pre: CodeBlock, // every fenced code block gets a Copy / Run-in-shell toolbar

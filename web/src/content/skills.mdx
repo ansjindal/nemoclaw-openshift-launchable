@@ -1,5 +1,9 @@
 Web search was *one* tool. **Skills** (OpenClaw plugins) are how you give your agent *many* — a weather lookup, a code helper, a domain workflow — installed from a registry or written by you. The interesting part on this platform isn't just *adding* skills; it's that every skill stays **governed**: where it comes from, whether it runs, and what it can reach are all things you control.
 
+This lesson builds to the production pattern: skills enter through **one registry you run in the cluster** — either **authored** fresh or **vetted-and-mirrored** from ClawHub — and the agent's *only* egress for installs is that registry. ClawHub and public npm are denied at the seal.
+
+<SkillSupplyChain />
+
 ## 1. Discover skills on ClawHub
 
 **ClawHub** is OpenClaw's plugin registry. Search it from inside your sandbox:
@@ -153,9 +157,117 @@ openshell sandbox exec -n shifty -- openclaw plugins install /sandbox/myskill
 
 You'll see **`Installed plugin: my-skill`** — its `openclaw` peer dependency is linked from the runtime, so you don't vendor it. Restart the gateway to load it (the same restart from *Give It a Brain*), then it appears in `plugins list`, `enabled`, governed by exactly the same policy (registry + enablement + egress) as any ClawHub skill.
 
-<Callout type="note" title="In production, build in CI">
-Building in the sandbox is fine for the workshop. For a real deployment you'd build the plugin in <strong>CI</strong> and install the artifact (a folder with <code>dist/</code>, a <code>.tgz</code>, or publish it to ClawHub), keeping the sandbox image minimal — the install + governance are identical either way.
+Installing from a local folder is fine for *testing*. For real use you want skills to come from a **registry you control** — versioned, shared across agents, lockable. That's the rest of this lesson.
+
+## 6. Publish to a registry you run in the cluster
+
+We run a private **[Verdaccio](https://verdaccio.org) npm registry** *inside the cluster* — an ordinary Deployment + Service in the `openshell` namespace, reachable at `registry.openshell.svc.cluster.local:4873`. Skills are just npm packages, so a standard npm registry is all you need.
+
+### How does `install @workshop/regtest` know to use it?
+
+There's no OpenClaw-specific "registry endpoint" setting — **it's plain npm scope routing.** `openclaw plugins install @workshop/regtest` is an *npm spec*, so OpenClaw hands resolution to `npm`, and npm routes by **scope** using your sandbox's `~/.npmrc` (`/sandbox/.npmrc`):
+
+```ini
+@workshop:registry=http://registry.openshell.svc.cluster.local:4873/
+//registry.openshell.svc.cluster.local:4873/:_auth=${TOKEN}   # workshop publish/read token
+```
+
+That `@workshop:registry=…` line **is** the endpoint. Anything matching `@workshop/*` resolves from your in-cluster registry; everything else still uses npm's default `registry` (we lock that down in step 7). Nothing is special about the word `@workshop` — it's an npm scope, and you could add `@acme:registry=…` for a second source the same way.
+
+The endpoint must also be allowed by the sandbox **egress policy** — one more rule, same shape as the ClawHub/npm ones:
+
+```yaml
+network_policies:
+  in-cluster-registry:
+    endpoints:
+      - { host: registry.openshell.svc.cluster.local, port: 4873, protocol: rest, access: full, allow_encoded_slash: true }
+    binaries:
+      - { path: /usr/bin/npm }
+      - { path: /usr/local/bin/npm }
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/node }
+```
+
+<Callout type="note" title="In-cluster, but still proxied and audited">
+The sandbox reaches the registry over the <strong>cluster network</strong> — CoreDNS resolves <code>…svc.cluster.local</code>, and the request still passes through the OpenShell egress proxy. So the install is policy-gated and lands on the <a href="/learn/live">Live</a> <strong>Policy decisions</strong> tab as <code>policy:in-cluster-registry</code>, exactly like any internet egress. Scoped names arrive URL-encoded (<code>@workshop%2Fregtest</code>) — which is why this endpoint also needs <code>allow_encoded_slash</code>.
 </Callout>
+
+### Flow A — publish your own skill
+
+You built and tested a skill in step 5. Give it a scoped name and publish it (the sandbox is pre-authenticated with the workshop token from `.npmrc`):
+
+```bash
+openshell sandbox exec -n shifty -- sh -c 'cd /sandbox/myskill && npm pkg set name=@workshop/myskill && npm pkg delete private && npm publish'
+```
+
+`npm publish` sees the `@workshop` scope and pushes to your in-cluster registry. Now install it by name — the way any agent would:
+
+```bash
+openshell sandbox exec -n shifty -- openclaw plugins install @workshop/myskill --force
+```
+
+You'll see the scoped fetch (`GET …:4873/@workshop%2Fmyskill`, allowed under `policy:in-cluster-registry`) and then **`Installed plugin: myskill`**.
+
+### Flow B — mirror a *vetted* ClawHub skill
+
+The other way a skill enters your registry: take one from ClawHub, **review the code**, and republish it under your own scope. That's the supply-chain control — a human vets it *once*, and from then on agents install *your copy*, never the internet's. Take the `hello-world` you pulled in step 2, rescope it, publish:
+
+```bash
+openshell sandbox exec -n shifty -- sh -c 'cp -r /sandbox/.openclaw/extensions/hello-world /sandbox/mirror-hello && cd /sandbox/mirror-hello && npm pkg set name=@workshop/hello-world && npm publish'
+openshell sandbox exec -n shifty -- openclaw plugins install @workshop/hello-world --force
+```
+
+It's now a first-class package in *your* registry (`@workshop/hello-world@0.1.0`), installed from there — no ClawHub round-trip at install time. In production this "vet → mirror → publish" is a CI step; here you did it by hand to see the mechanics.
+
+## 7. Lock the agent to your registry
+
+Steps 1–5 worked because the sandbox can still reach ClawHub and npm directly. The production posture is stricter: **the registry is the agent's only skill source.** Point npm's *default* registry at Verdaccio too — it uplinks to npmjs and caches deps — then drop ClawHub and npm from the policy, leaving **one egress endpoint**:
+
+```bash
+openshell sandbox exec -n shifty -- npm config set registry http://registry.openshell.svc.cluster.local:4873/
+```
+
+```yaml
+# locked policy — the only place the agent may fetch skills OR deps
+network_policies:
+  in-cluster-registry:
+    endpoints:
+      - { host: registry.openshell.svc.cluster.local, port: 4873, protocol: rest, access: full, allow_encoded_slash: true }
+    binaries: [ {path: /usr/bin/npm}, {path: /usr/local/bin/npm}, {path: /usr/bin/node}, {path: /usr/local/bin/node} ]
+  # clawhub.ai, hub.openclaw.ai, registry.npmjs.org — removed
+```
+
+```bash
+openshell policy set shifty --policy locked.yaml --wait
+```
+
+Now prove the boundary. ClawHub is gone:
+
+```bash
+openshell sandbox exec -n shifty -- openclaw plugins install clawhub:openclaw-hello-world
+```
+
+```text
+Resolving clawhub:openclaw-hello-world…
+fetch failed | Proxy response (403) … | UND_ERR_ABORTED
+```
+
+```text
+NET:OPEN [MED] DENIED /usr/bin/node -> clawhub.ai:443
+        [policy:- engine:opa] [reason: endpoint clawhub.ai:443 is not allowed by any policy]
+```
+
+…but your registry still serves everything — skills **and** their transitive deps (Verdaccio fetches an uncached package from its npmjs uplink, caches it, serves the sandbox):
+
+```bash
+openshell sandbox exec -n shifty -- openclaw plugins install @workshop/hello-world --force   # ✓ installed
+```
+
+That denial shows in red on the Live **Policy decisions** tab. The agent now has exactly one way to gain a capability: a package *you* placed in *your* registry.
+
+## 8. Watch the agent use it
+
+Restart the gateway to load what you installed, then open the [OpenClaw UI](/learn/live) and ask the agent to use the new tool — e.g. *"use the hello tool to greet WeAreDevelopers"*. It runs inside the same seal as everything else: the skill executes, but if it tried to reach a host outside the policy it would be blocked and audited, just like any other action.
 
 <Callout type="rh" title="Skills are capabilities you can prove">
 On most agent stacks, "install a plugin" means handing arbitrary code your whole network. Here, a skill is gated three ways — registry, enablement, and egress — and every byte it moves is in the audit log. That's the difference between an agent that's <em>extensible</em> and one that's extensible <em>and</em> governable.
