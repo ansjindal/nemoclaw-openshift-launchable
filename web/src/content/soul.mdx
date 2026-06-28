@@ -87,7 +87,7 @@ The agent you built by hand started **blank** — that's why it greeted you with
 cd ~/nemoclaw-openshift-launchable
 for f in manifests/openclaw/workspace-seed/*.md; do
   b=$(base64 -w0 < "$f")
-  openshell sandbox exec -n shifty -- sh -c "mkdir -p /sandbox/workspace && echo $b | base64 -d > /sandbox/workspace/$(basename "$f")"
+  openshell sandbox exec -n shifty -- sh -c "mkdir -p /sandbox/.openclaw/workspace && echo $b | base64 -d > /sandbox/.openclaw/workspace/$(basename "$f")"
 done
 echo "seeded: $(ls manifests/openclaw/workspace-seed/)"
 ```
@@ -103,7 +103,7 @@ Seeding/editing workspace files doesn't change the gateway process or its config
 OpenClaw keeps these files in its **workspace** inside the sandbox. Locate it, then read the real ones — through the sealed exec (`HOME` is `/sandbox`):
 
 ```bash
-WS=$(openshell sandbox exec -n shifty -- sh -c 'ls -d /sandbox/workspace 2>/dev/null || dirname $(find /sandbox -name SOUL.md 2>/dev/null | head -1)')
+WS=$(openshell sandbox exec -n shifty -- sh -c 'ls -d /sandbox/.openclaw/workspace 2>/dev/null || dirname $(find /sandbox -name SOUL.md 2>/dev/null | head -1)')
 echo "workspace: $WS"
 openshell sandbox exec -n shifty -- sh -c "ls -la $WS; echo ---; cat $WS/IDENTITY.md 2>/dev/null"
 ```
@@ -121,7 +121,7 @@ Two ways to change these files.
 **Now, from the shell (no model needed).** Read — and write — them directly through the sealed exec:
 
 ```bash
-openshell sandbox exec -n shifty -- sh -c 'echo "- Always confirm before any external action." >> /sandbox/workspace/SOUL.md; tail -3 /sandbox/workspace/SOUL.md'
+openshell sandbox exec -n shifty -- sh -c 'echo "- Always confirm before any external action." >> /sandbox/.openclaw/workspace/SOUL.md; tail -3 /sandbox/.openclaw/workspace/SOUL.md'
 ```
 
 **Later, by *asking the agent*** — the real workspace-as-memory move: open the OpenClaw UI and say *"Open your SOUL.md and add a rule: always confirm before posting anything externally."* Shifty edits its own brain.

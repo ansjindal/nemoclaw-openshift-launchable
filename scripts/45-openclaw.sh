@@ -136,7 +136,7 @@ if [[ -d "$SEED_DIR" ]]; then
   for f in "$SEED_DIR"/*; do
     [[ -f "$f" ]] || continue
     b="$(base64 -w0 < "$f")"
-    ox sh -c "mkdir -p /sandbox/workspace && echo $b | base64 -d > /sandbox/workspace/$(basename "$f")" || true
+    ox sh -c "mkdir -p /sandbox/.openclaw/workspace && echo $b | base64 -d > /sandbox/.openclaw/workspace/$(basename "$f")" || true
   done
 fi
 
