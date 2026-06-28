@@ -24,13 +24,18 @@ network_policies:
     endpoints:
       - { host: clawhub.ai, port: 443, access: full }       # ClawHub registry
       - { host: hub.openclaw.ai, port: 443, access: full }  # …its package CDN
-      - { host: registry.npmjs.org, port: 443, access: full }
+      # npm — note protocol: rest + allow_encoded_slash (see the callout below)
+      - { host: registry.npmjs.org, port: 443, access: full, protocol: rest, allow_encoded_slash: true }
     binaries:
       - { path: /usr/bin/node }
       - { path: /usr/local/bin/node }
       - { path: /usr/bin/npm }
       - { path: /usr/local/bin/npm }
 ```
+
+<Callout type="note" title="Why registry.npmjs.org needs allow_encoded_slash">
+A plugin can pull <strong>scoped</strong> npm deps (e.g. <code>openclaw-hello-world</code> → <code>@sinclair/typebox</code>), which npm fetches as <code>/@sinclair%2ftypebox</code> — the <code>/</code> URL-encoded to <code>%2F</code>. The supervisor's egress proxy does strict path parsing and <strong>rejects encoded slashes by default</strong> (a path-traversal / request-smuggling guard), so the host is allowed but the request is denied by <code>engine:http-parser</code> and the install hangs at <em>"Installing plugin dependencies"</em>. Setting <code>protocol: rest</code> + <code>allow_encoded_slash: true</code> on the npm endpoint permits it. You'll see this exact denial — and then the fix — on the <a href="/learn/live">Live OpenShell</a> <strong>Policy decisions</strong> tab. (It's <strong>not</strong> settable via <code>openshell policy update --add-endpoint</code>; it lives in the policy YAML.)
+</Callout>
 
 But `access: full` lets the agent install **any** ClawHub package. OpenShell's egress proxy can do better — it terminates TLS and evaluates the **HTTP path** (`engine:l7`), so you can vet ClawHub **package-by-package**. Switch the registry to enforced mode and block one you don't trust:
 
