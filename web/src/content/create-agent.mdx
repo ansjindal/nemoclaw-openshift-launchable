@@ -12,76 +12,53 @@ openshell status
 
 You want `Status: Connected` and a version. The endpoint reads `http://127.0.0.1:30808` — that's the gateway's NodePort, republished on this VM by a host forwarder (Part II explains why). If it's not connected, see [Troubleshooting](/learn/troubleshooting).
 
-## Step 2 — Look at a policy, before we use one
+## Step 2 — Look at the policy you'll use
 
-OpenShell is **deny-by-default**: a brand-new sandbox can reach **nothing** on the network. You grant access with a *policy* file. Before writing one, let's read the template the repo ships, so you know what it is:
+OpenShell is **deny-by-default**: a brand-new sandbox can reach **nothing** on the network. You grant access with a *policy* file. Read the template the repo ships:
 
 ```bash
 cd ~/nemoclaw-openshift-launchable
 cat policies/openclaw-sandbox.yaml
 ```
 
-Two parts matter. First, the **filesystem/process** block — what the agent may touch on disk and run. Second, `network_policies`: a **map of named rules**, each saying *which binary* may reach *which host*. The inference rule looks like this:
+Two parts matter. First, the **filesystem/process** block — what the agent may touch on disk and run. Second, `network_policies`: a **map of named rules**, each saying *which binary* may reach *which host*. Here it's a single rule, `openclaw`, allowing the OpenClaw registry/API hosts over `:443` for `node`/`npm`. That's the whole grant — everything not listed is denied.
 
 ```yaml
 network_policies:
-  inference:
-    name: inference
+  openclaw:
     endpoints:
-      - { host: __INFERENCE_HOST__, port: 443 }   # filled in next step
+      - { host: api.openclaw.ai, port: 443 }
+      - { host: registry.npmjs.org, port: 443 }   # …and a couple more
     binaries:
-      - { path: /usr/bin/node }                    # only node may reach it
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/node }
 ```
 
-Read that as one sentence: *"the `node` binary may open `:443` to the inference host — nothing else, nobody else."* There's a second rule (`openclaw`) allowing the OpenClaw registry/API hosts. That's the whole grant. Everything not listed is denied.
+<Callout type="note" title="Where's the inference host?">
+Notice there's <strong>no rule for your inference endpoint</strong>. You don't need one: in the previous lesson you set the gateway's inference route, and the agent reaches the model at <code>https://inference.local</code> — a virtual host the supervisor intercepts <em>before</em> this policy is evaluated. The gateway makes the real upstream call (with your key). So the model just works, the real host never appears in the policy, and the agent never holds the key.
+</Callout>
 
-## Step 3 — Fill in your inference host
+This policy needs no editing — use it as-is.
 
-The template has a placeholder, `__INFERENCE_HOST__`. You set your inference endpoint in the previous lesson — it's in `.env`. Load it back into this shell:
-
-```bash
-set -a; . .env; set +a
-echo "$NEMOCLAW_INFERENCE_BASE_URL"
-```
-
-Pull just the hostname out of that URL:
-
-```bash
-INFER_HOST=$(echo "$NEMOCLAW_INFERENCE_BASE_URL" | sed -E 's#https?://##; s#/.*##')
-echo "inference host = $INFER_HOST"
-```
-
-Now write a finished policy with the placeholder replaced:
-
-```bash
-sed "s/__INFERENCE_HOST__/${INFER_HOST}/g" policies/openclaw-sandbox.yaml > /tmp/agent-policy.yaml
-```
-
-Confirm the host made it in (no more `__INFERENCE_HOST__`):
-
-```bash
-grep host: /tmp/agent-policy.yaml
-```
-
-## Step 4 — Create the sandbox
+## Step 3 — Create the sandbox
 
 One command creates the agent. Let's read each flag, then run it:
 
 - `--name shifty` — what we'll call it.
-- `--policy /tmp/agent-policy.yaml` — the egress grant from Step 3.
+- `--policy policies/openclaw-sandbox.yaml` — the egress grant from Step 2.
 - `--from …/sandboxes/openclaw:latest` — the image. This OpenClaw sandbox image ships the `openclaw` agent **and** `iproute2` (the supervisor needs it to build the network seal).
 - `-- sh -c 'sleep infinity'` — the **initial command**. `openshell sandbox create` runs whatever you put after `--`; by default it would drop into a shell and exit. We pass `sleep infinity` so the pod simply **stays alive and idle** — we'll start OpenClaw inside it ourselves in the next lesson. (It's a deliberate "keep the box running" no-op, not OpenClaw itself.)
 
 ```bash
 openshell sandbox create --name shifty \
-  --policy /tmp/agent-policy.yaml \
+  --policy policies/openclaw-sandbox.yaml \
   --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest \
   -- sh -c 'sleep infinity'
 ```
 
 The gateway allocates a pod, sideloads its **supervisor** (the per-pod component that seals the network and mints the sandbox's identity), and applies your policy.
 
-## Step 5 — Wait until it's ready
+## Step 4 — Wait until it's ready
 
 List your sandboxes:
 

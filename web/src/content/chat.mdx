@@ -6,7 +6,7 @@ In the OpenClaw Control UI (the tab from *Open the Agent UI*), use the chat box:
 
 > Hi! Who are you, and what cluster are you running on?
 
-It answers from its **identity** (the workspace `.md` files — you'll edit those in *Identity & Soul*) using the model you configured. Every reply is a round-trip to your inference endpoint, through the sandbox's egress proxy.
+It answers from its **identity** (the workspace `.md` files — you'll edit those in *Identity & Soul*) using the model you configured. Every reply is a round-trip to `inference.local` — through the sandbox's egress proxy and the gateway's inference router to your model, with the key injected gateway-side.
 
 ## Watch it work from the shell
 

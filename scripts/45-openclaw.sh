@@ -24,14 +24,22 @@ SANDBOX_IMAGE="${OPENCLAW_SANDBOX_IMAGE:-ghcr.io/nvidia/openshell-community/sand
 GW_URL="${OPENSHELL_CLI_ENDPOINT:-http://127.0.0.1:30808}"
 
 # Inference creds (optional — if missing, the agent deploys UNCONFIGURED and the user
-# picks a provider/model + pastes a key in the OpenClaw UI). Never halt.
+# sets a provider/model hands-on later). Never halt.
+#
+# These configure the OpenShell PRIVACY ROUTER, not the agent directly: the real endpoint
+# + key live in a gateway-side provider (`openshell provider create`), and the gateway is
+# told which provider/model to route (`openshell inference set`). The agent then sends its
+# thinking to https://inference.local — the supervisor intercepts it (before policy) and
+# routes to the provider, injecting the real key. The agent never holds the key, and the
+# real inference host needs no egress-policy entry.
 API_KEY="${NEMOCLAW_PROVIDER_KEY:-${NEMOCLAW_API_KEY:-}}"
 BASE_URL="${NEMOCLAW_INFERENCE_BASE_URL:-}"
 MODEL="${NEMOCLAW_MODEL:-}"
 INFERENCE_API="${NEMOCLAW_INFERENCE_API:-openai-completions}"
+PROVIDER="${NEMOCLAW_INFERENCE_PROVIDER:-default}"
+INFERENCE_LOCAL_URL="https://inference.local/v1"   # the agent always points here
 CONFIGURED=false
 [[ -n "$BASE_URL" && -n "$MODEL" && -n "$API_KEY" ]] && CONFIGURED=true
-INFERENCE_HOST="$(printf '%s' "$BASE_URL" | sed -E 's#^https?://##; s#/.*##; s#:.*##')"
 
 # --- the openshell CLI must be installed + pointed at the in-cluster gateway ---
 if ! command -v openshell >/dev/null 2>&1; then
@@ -45,15 +53,31 @@ openshell gateway add "$GW_URL" --local --name cluster >/dev/null 2>&1 || true
 openshell gateway select cluster >/dev/null 2>&1 || true
 openshell status >/dev/null 2>&1 || warn "Gateway not answering at ${GW_URL} — is phase 30/50 done?"
 
-# --- render the egress policy (deny-by-default + inference + openclaw hosts) ---
+# --- configure the privacy router: gateway-side provider + inference route ---
+# The real endpoint + key are held by the gateway, NOT the agent. `inference.local` then
+# resolves through this provider. (Verified end-to-end on 0.0.71: this does NOT disturb
+# running sandbox sessions.)
+if [[ "$CONFIGURED" == true ]]; then
+  log "Creating inference provider '${PROVIDER}' (endpoint + key held by the gateway)"
+  openshell provider delete "$PROVIDER" >/dev/null 2>&1 || true
+  if openshell provider create --name "$PROVIDER" --type openai \
+       --credential OPENAI_API_KEY="$API_KEY" --config OPENAI_BASE_URL="$BASE_URL" >/tmp/provider.log 2>&1; then
+    openshell inference set --provider "$PROVIDER" --model "$MODEL" >/tmp/inference-set.log 2>&1 \
+      && log "Inference route set: provider=${PROVIDER} model=${MODEL} (agent reaches it at inference.local)" \
+      || warn "openshell inference set failed — see /tmp/inference-set.log"
+  else
+    warn "openshell provider create failed — see /tmp/provider.log; agent will deploy unconfigured."
+    CONFIGURED=false
+  fi
+fi
+
+# --- egress policy (deny-by-default; inference.local is intercepted before policy) ---
 POLICY_SRC="$REPO_ROOT/policies/openclaw-sandbox.yaml"
-POLICY_RENDERED="/tmp/openclaw-sandbox.rendered.yaml"
-if [[ -f "$POLICY_SRC" && -n "$INFERENCE_HOST" ]]; then
-  sed "s/__INFERENCE_HOST__/${INFERENCE_HOST}/g" "$POLICY_SRC" > "$POLICY_RENDERED"
-  POLICY_ARG=(--policy "$POLICY_RENDERED")
-  log "Rendered egress policy (inference host: ${INFERENCE_HOST})"
+if [[ -f "$POLICY_SRC" ]]; then
+  POLICY_ARG=(--policy "$POLICY_SRC")
+  log "Using egress policy $POLICY_SRC (deny-by-default; inference via inference.local)"
 else
-  warn "No policy/inference host — sandbox will use the gateway default policy."
+  warn "No policy file — sandbox will use the gateway default policy."
   POLICY_ARG=()
 fi
 
@@ -78,16 +102,18 @@ done
 # HOME=/sandbox; config at ~/.openclaw/openclaw.json. The agent is Landlock-confined to
 # /sandbox + /tmp, so stage via `openshell sandbox exec` (base64 — exec rejects newlines).
 if [[ "$CONFIGURED" == true ]]; then
-  log "Configuring OpenClaw model (custom/${MODEL} via ${INFERENCE_API})"
+  log "Configuring OpenClaw model (custom/${MODEL} via the privacy router at inference.local)"
+  # baseUrl points at inference.local, NOT the real endpoint; the key is a placeholder —
+  # the gateway's provider injects the real key when it routes the call upstream.
   OPENCLAW_JSON="$(jq -n \
-    --arg url "$BASE_URL" --arg key "$API_KEY" --arg model "$MODEL" \
+    --arg url "$INFERENCE_LOCAL_URL" --arg model "$MODEL" \
     --arg api "$INFERENCE_API" --arg pw "$GW_PASSWORD" \
     '{
        gateway: { auth: { password: $pw }, remote: { password: $pw },
                   controlUi: { dangerouslyAllowHostHeaderOriginFallback: true } },
        agents:  { defaults: { model: { primary: ("custom/" + $model) } } },
        models:  { providers: { custom: {
-         baseUrl: $url, apiKey: $key, api: $api,
+         baseUrl: $url, apiKey: "openshell-router", api: $api,
          models: [ { id: $model, name: $model } ]
        } } }
      }')"

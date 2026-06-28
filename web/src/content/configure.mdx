@@ -1,26 +1,26 @@
 Your sandbox is up, but it's empty — no model, no running agent. OpenClaw reads its config from `~/.openclaw/openclaw.json` (inside the sandbox, `HOME` is `/sandbox`). Let's give it a model and start the **OpenClaw gateway** (its Control UI + agent runtime).
 
-## 1. Build the config from your inference endpoint
+## 1. Build the config — pointed at the privacy router
 
-This points OpenClaw at the remote inference endpoint (no local GPU here) and sets the Control-UI password. We build it on the host from `.env`, then stage it **into the sandbox** — and because the agent is Landlock-confined, we write it through `openshell sandbox exec` (base64, since exec doesn't take multi-line args):
+This points OpenClaw at the gateway's privacy router, `https://inference.local` — **not** your real endpoint. Your key stays in the gateway (you registered it in the inference lesson); the agent only needs the **model id** and a placeholder key. We build the config on the host, then stage it **into the sandbox** — and because the agent is Landlock-confined, we write it through `openshell sandbox exec` (base64, since exec doesn't take multi-line args):
 
 ```bash
 cd ~/nemoclaw-openshift-launchable
 set -a; . .env; set +a
 PW="${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"
-OC=$(jq -n --arg url "$NEMOCLAW_INFERENCE_BASE_URL" --arg key "$NEMOCLAW_API_KEY" \
-  --arg model "$NEMOCLAW_MODEL" --arg pw "$PW" '{
+OC=$(jq -n --arg model "$NEMOCLAW_MODEL" --arg pw "$PW" '{
     gateway: { auth:{password:$pw}, remote:{password:$pw},
                controlUi:{ dangerouslyAllowHostHeaderOriginFallback:true } },
     agents:  { defaults:{ model:{ primary:("custom/"+$model) } } },
-    models:  { providers:{ custom:{ baseUrl:$url, apiKey:$key, api:"openai-completions",
+    models:  { providers:{ custom:{ baseUrl:"https://inference.local/v1",
+               apiKey:"openshell-router", api:"openai-completions",
                models:[{id:$model,name:$model}] } } }
   }')
 openshell sandbox exec -n shifty -- sh -c "mkdir -p /sandbox/.openclaw && echo $(printf '%s' "$OC" | base64 -w0) | base64 -d > /sandbox/.openclaw/openclaw.json"
 openshell sandbox exec -n shifty -- openclaw config validate
 ```
 
-`Config valid` means OpenClaw accepted it.
+`Config valid` means OpenClaw accepted it. Note `apiKey` is the literal string `openshell-router`, a placeholder — the gateway swaps in your real key when it routes `inference.local` upstream.
 
 <Callout type="note" title="Why stage through the gateway, not oc cp">
 The agent is sealed under <strong>Landlock</strong> — it can only read <code>/sandbox</code> and <code>/tmp</code>. A file you <code>oc cp</code> into <code>/workspace</code> is invisible to it. Writing through <code>openshell sandbox exec</code> lands in the agent's real view. Same isolation, everywhere.
@@ -39,14 +39,14 @@ You're looking for `listening on ws://0.0.0.0:30789`. That's the agent's Control
 
 ## 3. Prove the brain works
 
-Have the agent run one turn — this call goes through the **deny-by-default policy** to your inference endpoint and back:
+Have the agent run one turn — this call goes out to `inference.local` and comes back through the gateway's router:
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'cd /sandbox && openclaw agent --agent main -m "Reply with exactly: PONG" --session-id smoke'
 ```
 
-If it answers, inference is reachable *through the policy* — the only egress your agent was granted. Try changing the model later with `openclaw config set` and re-running.
+If it answers, the whole chain is live: the agent reached the model **without ever holding your key**.
 
 <Callout type="rh" title="The privacy boundary, made real">
-That reply travelled: agent → supervisor egress proxy → (policy check: is this host allowed for <code>node</code>?) → your inference endpoint. Nothing else gets out. Next: open the UI in your browser.
+That reply travelled: agent → <code>inference.local</code> → supervisor (intercepts before policy) → gateway router → it injects your real key → your inference endpoint → back. The agent never saw the key, and your real endpoint never appeared in its egress policy. Next: open the UI in your browser.
 </Callout>

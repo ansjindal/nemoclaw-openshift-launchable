@@ -1,11 +1,11 @@
-Your agent needs a **brain** — somewhere to send its thinking. There's no GPU on this box, so we use a **remote, OpenAI-compatible inference endpoint**. You provide three things once, and every later step reads them:
+Your agent needs a **brain** — somewhere to send its thinking. There's no GPU on this box, so we use a **remote, OpenAI-compatible inference endpoint**. You provide three things:
 
 - **Base URL** — the endpoint, ending in `/v1` (e.g. `https://integrate.api.nvidia.com/v1`)
 - **Model** — the model id to use (e.g. `nvidia/llama-3.3-nemotron-super-49b-v1`)
 - **API key** — your provider key (e.g. an `nvapi-…` key from [build.nvidia.com](https://build.nvidia.com))
 
-<Callout type="note" title="Why now, before you build">
-The **base URL's host** becomes part of your agent's egress <strong>policy</strong> in the next lesson — a sealed agent may only reach hosts you allowed. So we set inference <em>first</em>, then build the agent around it.
+<Callout type="note" title="The privacy router — why your key never enters the agent">
+We don't paste the key into the agent. Instead we register the endpoint + key with the <strong>gateway</strong> as a <em>provider</em>, then point the gateway's inference route at it. Your agent later sends its thinking to a virtual host, <code>https://inference.local</code>; the supervisor intercepts that <em>before</em> policy is even evaluated and routes it to the gateway, which injects the real key and calls upstream. So the agent <strong>never holds your key</strong>, and the real inference host <strong>never needs an entry in the agent's egress policy</strong>. That's the OpenShell privacy router.
 </Callout>
 
 ## Step 1 — Put your values in `.env`
@@ -39,7 +39,7 @@ You should see your URL and model, and the key's first few characters (we don't 
 
 ## Step 3 — Verify the endpoint actually works
 
-Ask the endpoint what models it serves — the standard OpenAI-compatible `/v1/models` call, authenticated with your key:
+Before registering it, sanity-check the endpoint with the standard OpenAI-compatible `/v1/models` call, authenticated with your key:
 
 ```bash
 curl -sS "$NEMOCLAW_INFERENCE_BASE_URL/models" -H "Authorization: Bearer $NEMOCLAW_API_KEY" | head -c 600; echo
@@ -55,6 +55,34 @@ curl -sS "$NEMOCLAW_INFERENCE_BASE_URL/models" -H "Authorization: Bearer $NEMOCL
 <strong>401 / Unauthorized</strong> → wrong or expired key. <strong>404</strong> → the base URL probably shouldn't (or should) end in <code>/v1</code> — match your provider's docs. <strong>Connection error</strong> → check the host name. Fix <code>.env</code> and re-run Step 2 + 3 before moving on.
 </Callout>
 
-<Callout type="rh" title="Brain confirmed">
-Endpoint reachable, key valid, model present. Those three values are now in <code>.env</code> — the next lessons read them to build your agent's <strong>policy</strong> (the host) and its <strong>model config</strong> (the model + key). On to creating the agent.
+## Step 4 — Register it with the gateway as a provider
+
+Hand the endpoint + key to the gateway. From here on *the gateway* holds them — not you, and not the agent:
+
+```bash
+openshell provider create --name default --type openai \
+  --credential OPENAI_API_KEY="$NEMOCLAW_API_KEY" \
+  --config OPENAI_BASE_URL="$NEMOCLAW_INFERENCE_BASE_URL"
+```
+
+The gateway probes the endpoint and prints the **validated endpoints** it found (e.g. `…/v1/chat/completions`). The key is now stored gateway-side as a credential — not in any file you'll hand the agent.
+
+## Step 5 — Point the inference route at your model
+
+Tell the gateway which provider + model to use when anything asks for inference:
+
+```bash
+openshell inference set --provider default --model "$NEMOCLAW_MODEL"
+```
+
+## Step 6 — Confirm the route
+
+```bash
+openshell inference get
+```
+
+You should see `Provider: default` and your `Model:`. That's the route every agent reaches via `inference.local`.
+
+<Callout type="rh" title="Brain wired — through the router">
+Endpoint verified, registered as a gateway provider, and the inference route is set. Your key lives in the gateway, not the agent. When you build the agent next, it points at <code>https://inference.local</code> — so its egress policy won't even mention your inference host. On to creating the agent.
 </Callout>

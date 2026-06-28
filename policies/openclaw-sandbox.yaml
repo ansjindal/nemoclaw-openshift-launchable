@@ -10,8 +10,11 @@
 # supervisor (egress proxy routes to the internet only). That is by design — these
 # agents do governed EXTERNAL work, not in-cluster reads.
 #
-# The inference host is rendered by scripts/45-openclaw.sh from NEMOCLAW_INFERENCE_BASE_URL
-# (the __INFERENCE_HOST__ placeholder is replaced at deploy time).
+# INFERENCE: the agent sends its thinking to https://inference.local — a virtual host the
+# supervisor intercepts BEFORE policy evaluation and routes to the gateway's configured
+# inference provider (`openshell provider create` + `openshell inference set`). The gateway
+# holds the real endpoint + key and makes the upstream call, so the real inference host
+# needs NO entry here and the agent never sees the key. That's the OpenShell privacy router.
 
 version: 1
 
@@ -38,14 +41,8 @@ process:
   run_as_group: sandbox
 
 network_policies:
-  # --- remote inference endpoint (REQUIRED) — host rendered from .env ---
-  inference:
-    name: inference
-    endpoints:
-      - { host: __INFERENCE_HOST__, port: 443 }
-    binaries:
-      - { path: /usr/bin/node }
-      - { path: /usr/local/bin/node }
+  # Inference is NOT listed here — the agent reaches the model via https://inference.local,
+  # which the supervisor intercepts before policy is evaluated (see the header note).
 
   # --- OpenClaw operational hosts (registry, API, docs) ---
   openclaw:
