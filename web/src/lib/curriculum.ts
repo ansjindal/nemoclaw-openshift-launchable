@@ -52,11 +52,15 @@ export const CURRICULUM: Part[] = [
   {
     id: "operate",
     title: "Part V · Make It Yours & Operate",
-    subtitle: "Give it identity, then run it as a real agent",
+    subtitle: "Give it identity and isolation, extend it with tools & skills, then run it as a real agent",
     accent: "nv",
     lessons: [
       { slug: "soul", title: "Identity & Soul", blurb: "The workspace .md files that ARE the agent's memory and personality.", minutes: 8, hasLab: true },
       { slug: "into-the-sandbox", title: "Into a Sandbox", blurb: "A sandbox IS a pod — but sealed. exec in two ways and see the isolation.", minutes: 8, hasLab: true },
+      { slug: "web-search", title: "Give It Web Search", blurb: "Turn on free, key-free DuckDuckGo search — governed by the same egress policy.", minutes: 8, hasLab: true },
+      { slug: "skills", title: "Skills & Governance", blurb: "Install a verified skill from ClawHub, author your own, and govern which skills run.", minutes: 12, hasLab: true },
+      { slug: "heartbeat", title: "Heartbeat — Run It Autonomously", blurb: "A scheduled self-prompt turns the agent into an operator that watches on its own.", minutes: 8, hasLab: true },
+      { slug: "openai-api", title: "OpenAI-Compatible API", blurb: "Expose /v1/chat/completions so any OpenAI client can call your governed agent.", minutes: 8, hasLab: true },
     ],
   },
   {

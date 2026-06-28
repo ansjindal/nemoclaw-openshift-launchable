@@ -1,0 +1,94 @@
+Web search was *one* tool. **Skills** (OpenClaw plugins) are how you give your agent *many* — a weather lookup, a code helper, a domain workflow — installed from a registry or written by you. The interesting part on this platform isn't just *adding* skills; it's that every skill stays **governed**: where it comes from, whether it runs, and what it can reach are all things you control.
+
+## 1. Discover skills on ClawHub
+
+**ClawHub** is OpenClaw's plugin registry. Search it from inside your sandbox:
+
+```bash
+openshell sandbox exec -n shifty -- openclaw plugins search hello
+```
+
+You'll get a short catalog, each line ending with its install command — e.g. `openclaw plugins install clawhub:openclaw-hello-world`. (Try `… plugins search weather` too.)
+
+<Callout type="note" title="That search already crossed a governed boundary">
+ClawHub lives at <code>clawhub.ai</code> + <code>hub.openclaw.ai</code>. Your sandbox is deny-by-default, so that search only worked because those hosts are in the <code>openclaw</code> rule of your policy. Allowing exactly those two hosts is how you say <em>"skills may come from ClawHub — and nowhere else."</em>
+</Callout>
+
+## 2. Install a verified skill
+
+```bash
+openshell sandbox exec -n shifty -- openclaw plugins install clawhub:openclaw-hello-world
+```
+
+It downloads from ClawHub and registers. Confirm it's there:
+
+```bash
+openshell sandbox exec -n shifty -- openclaw plugins list
+```
+
+You'll see **Hello World** — `enabled`, version `0.1.0`, "Registers a `hello` tool and ships a matching skill." Your agent just gained a capability.
+
+## 3. Governance, layer one — *where skills come from* (OpenShell)
+
+That install is fully attributable. Pull the audit trail:
+
+```bash
+openshell logs shifty --source sandbox | grep -i clawhub.ai
+```
+
+```text
+NET:OPEN  ALLOWED /usr/bin/node -> clawhub.ai:443 [policy:openclaw engine:opa]
+HTTP:GET  ALLOWED GET http://clawhub.ai:443/api/v1/packages/openclaw-hello-world/download
+```
+
+Every fetch is an OCSF event: **allowed**, by the `openclaw` policy rule, evaluated by the **OPA** engine, naming the exact package URL. Delete `clawhub.ai`/`hub.openclaw.ai` from the policy and re-run the install — it's **denied** (you saw this exact denial in the policy lesson). That's the answer to *"can I allow only certain skills?"* at the supply line: **you whitelist the registries skills may come from, and every install is logged.**
+
+## 4. Governance, layer two — *which skills run* (OpenClaw allowlist)
+
+Installed ≠ unconditionally on. OpenClaw keeps an explicit per-skill switch in `plugins.entries`:
+
+```bash
+openshell sandbox exec -n shifty -- openclaw config get plugins
+```
+
+Each entry has an `enabled` flag. Flip one off and on:
+
+```bash
+openshell sandbox exec -n shifty -- sh -c \
+  'openclaw plugins disable hello-world; openclaw config get plugins.entries.hello-world; openclaw plugins enable hello-world'
+```
+
+`disable` sets `{"enabled": false}` (it takes effect on the next gateway restart). So you can ship an agent with a curated set: install many, **enable only the ones you bless**.
+
+<Callout type="note" title="And layer three: what a skill can DO">
+Even an <em>enabled</em> skill is still inside the seal. A skill that tries to reach an un-allowed host, or run a binary not in the policy's <code>binaries</code> list, is blocked and audited — exactly like any other agent action. A rogue skill can't exfiltrate or phone home unless your policy already permits that destination. <strong>Source-allowlist + enable-allowlist + egress/binary policy</strong> — three independent gates.
+</Callout>
+
+<Callout type="note" title="If a skill won't load">
+Community plugins must resolve their own runtime dependencies. If one fails on restart (<code>Cannot find module …</code>), it's dropped from the registry — diagnose with <code>openclaw plugins inspect &lt;id&gt; --runtime</code>. Prefer skills that bundle their deps.
+</Callout>
+
+## 5. Author your own skill
+
+A skill is a small TypeScript plugin. Scaffold one (this runs in the sandbox and just writes files):
+
+```bash
+openshell sandbox exec -n shifty -- openclaw plugins init my-skill --name "My Skill" --directory /sandbox/my-skill
+```
+
+That creates a project — `openclaw.plugin.json` (the manifest), `src/index.ts` (your tool/skill code), `package.json`, and tests. You edit `src/index.ts` to register a tool, then **build and package** it:
+
+```bash-ref
+# Build produces ./dist/index.js, then packages it as a plugin:
+npm install
+npm run plugin:build        # = tsc, then `openclaw plugins build --entry ./dist/index.js`
+openclaw plugins install ./my-skill
+```
+
+<Callout type="note" title="Build on the host or CI, install the artifact">
+The sealed sandbox has no general outbound npm path (only the hosts in your policy), so a from-source <code>npm install</code> won't resolve a full toolchain inside it. In practice you <strong>build the plugin on your workstation or CI</strong> — where you have npm — and install the built result (a folder with <code>dist/</code>, a <code>.tgz</code>, or by publishing to ClawHub). That keeps the sandbox locked down while still letting you ship custom skills. The governance in steps 3–4 applies identically to your own skills.
+</Callout>
+
+<Callout type="rh" title="Skills are capabilities you can prove">
+On most agent stacks, "install a plugin" means handing arbitrary code your whole network. Here, a skill is gated three ways — registry, enablement, and egress — and every byte it moves is in the audit log. That's the difference between an agent that's <em>extensible</em> and one that's extensible <em>and</em> governable.
+</Callout>

@@ -21,14 +21,15 @@ cd ~/nemoclaw-openshift-launchable
 cat policies/openclaw-sandbox.yaml
 ```
 
-Two parts matter. First, the **filesystem/process** block — what the agent may touch on disk and run. Second, `network_policies`: a **map of named rules**, each saying *which binary* may reach *which host*. Here it's a single rule, `openclaw`, allowing the OpenClaw registry/API hosts over `:443` for `node`/`npm`. That's the whole grant — everything not listed is denied.
+Two parts matter. First, the **filesystem/process** block — what the agent may touch on disk and run. Second, `network_policies`: a **map of named rules**, each saying *which binary* may reach *which host*. There are two rules: `openclaw` (the ClawHub plugin registry + npm, for installing skills) and `websearch` (DuckDuckGo). Each grants `:443` to `node`/`npm` only. That's the whole grant — everything not listed is denied.
 
 ```yaml
 network_policies:
   openclaw:
     endpoints:
-      - { host: api.openclaw.ai, port: 443 }
-      - { host: registry.npmjs.org, port: 443 }   # …and a couple more
+      - { host: clawhub.ai, port: 443, access: full }      # ClawHub registry alias
+      - { host: hub.openclaw.ai, port: 443, access: full }  # …its package CDN
+      - { host: registry.npmjs.org, port: 443, access: full }
     binaries:
       - { path: /usr/bin/node }
       - { path: /usr/local/bin/node }
@@ -47,7 +48,7 @@ One command creates the agent. Let's read each flag, then run it:
 - `--name shifty` — what we'll call it.
 - `--no-tty` — run non-interactively (skip the per-provider prompt) and don't attach a terminal.
 - `--policy policies/openclaw-sandbox.yaml` — the egress grant from Step 2.
-- `--from …/sandboxes/openclaw:latest` — the image. This OpenClaw sandbox image ships the `openclaw` agent **and** `iproute2` (the supervisor needs it to build the network seal).
+- `--from ghcr.io/ansjindal/openclaw-sandbox:2026.6.10` — the image: the OpenClaw community sandbox base, pinned to OpenClaw **2026.6.10**. It ships the `openclaw` agent (with the bundled DuckDuckGo plugin) **and** `iproute2` (the supervisor needs it to build the network seal).
 - `-- true` — the **initial command**. It runs once and exits immediately, so `create` **returns right away** instead of blocking. The supervisor still **keeps the pod alive**, so the box stays up and idle — we'll start OpenClaw inside it ourselves in the next lesson. (If you instead pass a long-running command like `sleep infinity`, `create` stays attached and blocks your shell — so we don't.)
 
 ```bash
