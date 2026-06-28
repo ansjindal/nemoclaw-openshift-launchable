@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Activity } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { InstanceLinks } from "./InstanceLinks";
+import { ApprovalsNav } from "./ApprovalsNav";
 
 export function SiteHeader() {
   return (
@@ -22,6 +23,7 @@ export function SiteHeader() {
           className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-line-2)] px-2.5 py-1 transition hover:border-[var(--color-nv-dim)] hover:text-[var(--color-nv-bright)]">
           <Activity size={13} /> <span className="hidden sm:inline">Live</span>
         </Link>
+        <ApprovalsNav />
         <InstanceLinks />
         <span className="rounded-full border border-[rgba(238,0,0,0.35)] px-2.5 py-1 text-[var(--color-rh-bright)]">Red Hat</span>
         <span className="rounded-full border border-[rgba(118,185,0,0.35)] px-2.5 py-1 text-[var(--color-nv-bright)]">NVIDIA</span>
