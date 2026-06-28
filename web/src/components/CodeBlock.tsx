@@ -1,5 +1,5 @@
 "use client";
-import { useState, type ReactNode, isValidElement } from "react";
+import { useState, useEffect, type ReactNode, isValidElement } from "react";
 import hljs from "highlight.js/lib/core";
 import bash from "highlight.js/lib/languages/bash";
 import yaml from "highlight.js/lib/languages/yaml";
@@ -61,10 +61,15 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
   const label = isRef ? "reference" : (lang || "shell");
 
   const grammar = hljsLang(lang);
-  let html: string | null = null;
-  if (grammar) {
-    try { html = hljs.highlight(code, { language: grammar }).value; } catch { html = null; }
-  }
+  // Highlight AFTER mount, not during render. Server (and the client's first render)
+  // emit plain text, so hydration always matches; the colored HTML is swapped in by the
+  // effect. Highlighting during render meant SSR shipped dangerouslySetInnerHTML that the
+  // client could mismatch on — which left some blocks rendering blank after hydration.
+  const [html, setHtml] = useState<string | null>(null);
+  useEffect(() => {
+    if (!grammar) { setHtml(null); return; }
+    try { setHtml(hljs.highlight(code, { language: grammar }).value); } catch { setHtml(null); }
+  }, [code, grammar]);
 
   return (
     <div className="group relative my-5 overflow-hidden rounded-xl border border-[var(--color-line)] bg-[var(--color-code-bg)]">

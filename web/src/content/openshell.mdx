@@ -93,15 +93,7 @@ And list the agents running on it:
 openshell sandbox list
 ```
 
-If you haven't built an agent yet, this is **empty** — you create your first one in **Part IV**. (If you do see one like `shifty`, it's simply been created already.)
-
-And once a sandbox *does* exist, you don't `kubectl exec` into it — you go **through the gateway** with `openshell sandbox exec`, which enforces the sandbox's policy and records every command in the audit trail. It runs anything inside the box, including the agent's own `openclaw` CLI (it ships in the sandbox image):
-
-```bash-ref
-# (reference — needs a sandbox like shifty first, which you build in Part IV)
-openshell sandbox exec -n shifty -- echo "hello from inside the sandbox"
-openshell sandbox exec -n shifty -- openclaw --version
-```
+If you haven't built an agent yet, this is **empty** — you create your first one in **Part IV**. (If you do see one like `shifty`, it's simply been created already.) Once a sandbox exists, you reach into it **through the gateway** with `openshell sandbox exec` — audited and policy-enforced, not a raw `kubectl exec` — and that's how you'll run commands inside your agent (including its own `openclaw` CLI) in Part IV.
 
 Part III (next) goes deeper on the control plane and the policy model, with a throwaway sandbox to play on, so you understand every piece before you build for real.
 

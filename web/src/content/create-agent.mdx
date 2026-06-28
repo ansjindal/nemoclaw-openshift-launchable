@@ -75,6 +75,12 @@ openshell sandbox exec -n shifty -- echo "supervisor ready"
 
 When that prints `supervisor ready`, your agent's home is live.
 
+That command went **through the gateway** (`openshell sandbox exec`) — audited and policy-enforced, never a raw `kubectl exec`. The same way, you can run anything inside the box, including the agent's own `openclaw` CLI (it ships in the image):
+
+```bash
+openshell sandbox exec -n shifty -- openclaw --version
+```
+
 <Callout type="note" title="It's a pod, in the same namespace as the gateway">
 <code>oc -n openshell get pod shifty</code> shows it as a normal pod — in the <strong>openshell</strong> namespace, right alongside the gateway (sandboxes are <em>not</em> in a separate namespace). But the agent runs in a <strong>private network namespace</strong> reachable only through the supervisor — that's the seal you'll explore in <a href="/learn/into-the-sandbox">Into a Sandbox</a>.
 </Callout>
