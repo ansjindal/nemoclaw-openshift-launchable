@@ -79,6 +79,21 @@ Delete this file — you don't need a kickoff script once you're in flow.
 | `USER.md` | Facts about you it should remember |
 | `HEARTBEAT.md` | The periodic self-check-in |
 
+## Seed them into your agent
+
+The agent you built by hand started **blank** — that's why it greeted you with a generic "who are you?" instead of as Shifty. Let's give it the persona now by staging the launchable's seed files (`manifests/openclaw/workspace-seed/`) into its workspace. Run this in the lab shell:
+
+```bash
+cd ~/nemoclaw-openshift-launchable
+for f in manifests/openclaw/workspace-seed/*.md; do
+  b=$(base64 -w0 < "$f")
+  openshell sandbox exec -n shifty -- sh -c "mkdir -p /sandbox/workspace && echo $b | base64 -d > /sandbox/workspace/$(basename "$f")"
+done
+echo "seeded: $(ls manifests/openclaw/workspace-seed/)"
+```
+
+That writes `IDENTITY.md`, `SOUL.md`, and `BOOTSTRAP.md` into the agent. Next time Shifty wakes up (restart its gateway, or just start a new chat session) it reads them and *is* Shifty. (The scripted provisioner does this same seeding for you at creation; on the hands-on path you do it here.)
+
 ## Read them live
 
 OpenClaw keeps these files in its **workspace** inside the sandbox. Locate it, then read the real ones — through the sealed exec (`HOME` is `/sandbox`):
@@ -92,7 +107,7 @@ openshell sandbox exec -n shifty -- sh -c "ls -la $WS; echo ---; cat $WS/IDENTIT
 If it's a `.git` repo, the agent **version-controls its own memory**.
 
 <Callout type="note" title="Where they come from">
-A fresh OpenClaw agent starts with default identity files; the launchable's <code>workspace-seed</code> (<code>manifests/openclaw/workspace-seed/</code>) pre-fills the Shifty persona when you create the agent. Your edits persist for the life of the sandbox.
+A fresh OpenClaw agent starts with default (empty) identity files — which is why you just seeded the Shifty persona from <code>manifests/openclaw/workspace-seed/</code> above. (The scripted provisioner stages the same files at creation time.) Your edits from here persist for the life of the sandbox.
 </Callout>
 
 ## Make it yours
