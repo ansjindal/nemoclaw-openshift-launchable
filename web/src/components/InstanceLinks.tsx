@@ -43,7 +43,7 @@ export function InstanceLinks() {
             <div className="mt-3 border-t border-[var(--color-line)] pt-2">
               <label className="text-[11px] text-[var(--color-fg-mut)]">Your Brev instance ID</label>
               <div className="mt-1 flex gap-1.5">
-                <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={id || "agcuo13nx"}
+                <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={id || "1ut2jitd"}
                   className="min-w-0 flex-1 rounded border border-[var(--color-line-2)] bg-[var(--color-bg-2)] px-2 py-1 font-mono text-[12px] text-[var(--color-fg)] outline-none focus:border-[var(--color-nv-dim)]" />
                 <button onClick={() => { if (draft.trim()) { setBrevId(draft); setDraft(""); } }}
                   className="inline-flex items-center rounded border border-[var(--color-nv-dim)] px-2 text-[11px] font-semibold text-[var(--color-nv-bright)] hover:bg-[var(--color-bg-2)]">
@@ -51,7 +51,7 @@ export function InstanceLinks() {
                 </button>
               </div>
               <p className="mt-1.5 text-[10px] leading-snug text-[var(--color-fg-mut)]">
-                The suffix in your instance&apos;s Shareable URLs (e.g. <code>openshift-<b>agcuo13nx</b>.brevlab.com</code>). Set it once and every link below works.
+                Usually auto-detected from this page&apos;s URL. The ID is the suffix in your instance&apos;s Shareable URLs (e.g. <code>openshift-<b>1ut2jitd</b>.stg.apps.launchpad.nvidia.com</code>) — override it here if a link doesn&apos;t resolve.
               </p>
             </div>
           </div>

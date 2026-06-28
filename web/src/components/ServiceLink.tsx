@@ -1,7 +1,7 @@
 "use client";
 import { type ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
-import { useBrevId, brevUrl, setBrevId, needsId, BREV_SERVICES, type BrevService } from "@/lib/brev";
+import { useBrevId, brevUrl, setBrevId, needsId, parseBrevId, BREV_SERVICES, type BrevService } from "@/lib/brev";
 
 // Inline "open X" link for lessons: <ServiceLink service="openclaw">Open the OpenClaw UI</ServiceLink>.
 // Path-based services (grafana) just link same-origin. Subdomain services prompt once for
@@ -15,11 +15,11 @@ export function ServiceLink({ service, children }: { service: BrevService; child
     if (needsId(service) && !id) {
       e.preventDefault();
       const raw = window.prompt(
-        "Your Brev instance ID (e.g. agcuo13nx) — it's the suffix in any of your instance's Shareable URLs, like openshift-agcuo13nx.brevlab.com. You can also paste the whole URL.",
+        "Your instance ID (e.g. 1ut2jitd) — the suffix in any of your instance's Shareable URLs, like openshift-1ut2jitd.stg.apps.launchpad.nvidia.com. You can also paste the whole URL.",
       );
       if (!raw) return;
       setBrevId(raw);
-      const url = brevUrl(service, raw.match(/-([a-z0-9]+)\.brevlab\.com/i)?.[1] ?? raw.trim());
+      const url = brevUrl(service, parseBrevId(raw));
       if (url) window.open(url, "_blank", "noreferrer");
     }
   };
