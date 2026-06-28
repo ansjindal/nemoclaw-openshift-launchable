@@ -92,7 +92,11 @@ done
 echo "seeded: $(ls manifests/openclaw/workspace-seed/)"
 ```
 
-That writes `IDENTITY.md`, `SOUL.md`, and `BOOTSTRAP.md` into the agent. Next time Shifty wakes up (restart its gateway, or just start a new chat session) it reads them and *is* Shifty. (The scripted provisioner does this same seeding for you at creation; on the hands-on path you do it here.)
+That writes `IDENTITY.md`, `SOUL.md`, and `BOOTSTRAP.md` into the agent. To pick them up, just **start a new chat session** in the OpenClaw UI — the agent reads its workspace fresh each session, so it wakes up *as* Shifty. (The scripted provisioner does this same seeding for you at creation; on the hands-on path you do it here.)
+
+<Callout type="note" title="No restart or re-forward needed">
+Seeding/editing workspace files doesn't change the gateway process or its config, so you <strong>don't</strong> restart the gateway or re-run <code>openshell forward</code> — a fresh chat session is enough. (You only re-run <code>openshell forward</code> if you <em>delete and recreate</em> the sandbox.)
+</Callout>
 
 ## Read them live
 
