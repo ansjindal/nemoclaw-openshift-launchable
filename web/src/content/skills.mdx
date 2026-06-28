@@ -68,7 +68,24 @@ Even an <em>enabled</em> skill is still inside the seal. A skill that tries to r
 Community plugins must resolve their own runtime dependencies. If one fails on restart (<code>Cannot find module …</code>), it's dropped from the registry — diagnose with <code>openclaw plugins inspect &lt;id&gt; --runtime</code>. Prefer skills that bundle their deps.
 </Callout>
 
-## 5. Author your own skill
+## 5. Govern installs at the *package* level (advanced)
+
+Layers one and two gate skills by **registry** (ClawHub or not) and by **enablement** (which run). OpenShell can go one level finer. Its egress proxy terminates TLS and evaluates the **HTTP path** — that's why your audit log named the exact package URL and tagged it `engine:l7` (layer 7), not just `engine:opa` (the L4 tunnel). Path-aware policy means you can govern *which packages* may even be fetched.
+
+Block one specific skill with a deny rule (`host:port:METHOD:path_glob`):
+
+```bash
+openshell policy update shifty \
+  --add-deny 'clawhub.ai:443:GET:/api/v1/packages/zentao-to-code/**'
+```
+
+Now `openclaw plugins install clawhub:zentao-to-code` is refused at layer 7 — a precise `403 policy_denied` ("blocked by deny rule"), recorded as `DENIED … [engine:l7]` in `openshell logs` — while every other skill still installs normally.
+
+<Callout type="note" title="Blocklist, not a one-line allowlist">
+A subtlety worth knowing: once a host is granted, it's <strong>default-allow</strong>, and <strong>deny rules win over allow rules</strong>. So a broad <code>--add-deny</code> on the package path combined with a narrow <code>--add-allow</code> for one package denies <em>both</em> — the deny wins. Path rules are therefore natural as a <strong>blocklist</strong>: deny the packages you don't want. The practical recipe for "only these skills" is to combine the layers — registry-allow (layer one) + a per-package <em>deny</em> for anything risky (this layer) + the <code>plugins.entries</code> enablement list (layer two). Together they let you ship an agent that can install from ClawHub, but never that package, and only runs the skills you blessed.
+</Callout>
+
+## 6. Author your own skill
 
 A skill is a small TypeScript plugin. Scaffold one (this runs in the sandbox and just writes files):
 
