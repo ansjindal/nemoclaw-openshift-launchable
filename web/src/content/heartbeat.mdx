@@ -13,28 +13,19 @@ OpenClaw also has plain <code>cron</code> jobs (run a fixed command on a schedul
 Just like `SOUL.md` and `IDENTITY.md`, the heartbeat reads a workspace file for *what to do each beat*. Drop a `HEARTBEAT.md` into the agent's workspace:
 
 ```bash
-openshell sandbox exec -n shifty -- sh -c 'cat > /sandbox/.openclaw/workspace/HEARTBEAT.md <<"EOF"
-# Heartbeat checklist
-
-Every beat, do the following and keep it short:
-1. Note the current time and that you are alive.
-2. If you have any pending tasks in NOTES.md, summarise their status.
-3. If everything is nominal, reply with exactly: HEARTBEAT_OK
-4. If something needs my attention, start your reply with: ALERT —
-EOF'
+openshell sandbox exec -n shifty -- sh -c 'printf "%s\n" "# Heartbeat checklist" "" "Every beat, do the following and keep it short:" "1. Note the current time and that you are alive." "2. If you have pending tasks in NOTES.md, summarise their status." "3. If everything is nominal, reply with exactly: HEARTBEAT_OK" "4. If something needs my attention, start your reply with: ALERT —" > /sandbox/.openclaw/workspace/HEARTBEAT.md'
 ```
+
+<Callout type="note" title="Why printf, not a heredoc">
+<code>openshell sandbox exec -- sh -c '…'</code> rejects a quoted argument containing literal newlines, so a <code>cat &lt;&lt;EOF</code> heredoc fails. <code>printf "%s\n" …</code> writes the multi-line file from a <strong>single line</strong> (the <code>\n</code> are interpreted by printf, not sent as real newlines).
+</Callout>
 
 ## 2. Turn the heartbeat on
 
 Heartbeat lives under `agents.defaults.heartbeat` in `openclaw.json`. Set the interval, the wake prompt, and where it runs. We use `openclaw config set` for each key, then **restart the gateway** so it picks them up:
 
 ```bash
-openshell sandbox exec -n shifty -- sh -c '
-  openclaw config set agents.defaults.heartbeat.every "30m"
-  openclaw config set agents.defaults.heartbeat.prompt "Read HEARTBEAT.md and run the checklist."
-  openclaw config set agents.defaults.heartbeat.isolatedSession true
-  openclaw config set agents.defaults.heartbeat.lightContext true
-  openclaw config get agents.defaults.heartbeat'
+openshell sandbox exec -n shifty -- sh -c 'openclaw config set agents.defaults.heartbeat.every 30m; openclaw config set agents.defaults.heartbeat.prompt "Read HEARTBEAT.md and run the checklist."; openclaw config set agents.defaults.heartbeat.isolatedSession true; openclaw config set agents.defaults.heartbeat.lightContext true; openclaw config get agents.defaults.heartbeat'
 ```
 
 - **`every`** — the interval (`30m`, `1h`, `15m`…). The default is `30m`.

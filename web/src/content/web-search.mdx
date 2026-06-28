@@ -27,11 +27,12 @@ websearch:
 Two config keys: enable the bundled plugin, and pick it as the web-search provider. Then **restart the gateway** so it loads the plugin:
 
 ```bash
-openshell sandbox exec -n shifty -- sh -c '
-  openclaw config set plugins.entries.duckduckgo.enabled true
-  openclaw config set tools.web.search.provider duckduckgo
-  openclaw config get tools.web.search'
+openshell sandbox exec -n shifty -- sh -c 'openclaw config set plugins.entries.duckduckgo.enabled true; openclaw config set tools.web.search.provider duckduckgo; openclaw config get tools.web.search'
 ```
+
+<Callout type="note" title="One line, on purpose">
+Keep that as a <strong>single line</strong> (commands joined with <code>;</code>). <code>openshell sandbox exec -- sh -c '…'</code> rejects a quoted argument that contains literal newlines, so a multi-line block fails with <em>"command argument contains newline"</em>.
+</Callout>
 
 You'll see `Updated … Restart the gateway to apply.` and the provider read back as `duckduckgo`. Restart (same command as before):
 
