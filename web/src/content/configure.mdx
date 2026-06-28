@@ -7,9 +7,9 @@ This points OpenClaw at the gateway's privacy router, `https://inference.local` 
 ```bash
 cd ~/nemoclaw-openshift-launchable
 set -a; . .env; set +a
-PW="${OPENCLAW_GATEWAY_PASSWORD:-openclaw}"
+PW="${OPENCLAW_GATEWAY_PASSWORD:-openshell-wad26}"
 OC=$(jq -n --arg model "$NEMOCLAW_MODEL" --arg pw "$PW" '{
-    gateway: { auth:{password:$pw}, remote:{password:$pw},
+    gateway: { auth:{password:$pw}, remote:{ url:"ws://127.0.0.1:30789", password:$pw },
                controlUi:{ dangerouslyAllowHostHeaderOriginFallback:true } },
     agents:  { defaults:{ model:{ primary:("custom/"+$model) } } },
     models:  { providers:{ custom:{ baseUrl:"https://inference.local/v1",
@@ -26,8 +26,8 @@ That `echo "$OC" | jq .` prints the exact `openclaw.json` you're staging — it 
 ```json
 {
   "gateway": {
-    "auth": { "password": "openclaw" },
-    "remote": { "password": "openclaw" },
+    "auth": { "password": "openshell-wad26" },
+    "remote": { "url": "ws://127.0.0.1:30789", "password": "openshell-wad26" },
     "controlUi": { "dangerouslyAllowHostHeaderOriginFallback": true }
   },
   "agents": { "defaults": { "model": { "primary": "custom/<your-model>" } } },
@@ -58,7 +58,7 @@ We start it under `setsid` so it runs in its **own session** and keeps running a
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
-  'cd /sandbox && [ -f gateway.pid ] && kill "$(cat gateway.pid)" 2>/dev/null; sleep 1; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${PW:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; sleep 6; grep -E "listening on ws|Browser control" /sandbox/gateway.log'
+  'cd /sandbox && [ -f gateway.pid ] && kill "$(cat gateway.pid)" 2>/dev/null; sleep 1; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${PW:-openshell-wad26}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; sleep 6; grep -E "listening on ws|Browser control" /sandbox/gateway.log'
 ```
 
 The line that matters is **`listening on ws://0.0.0.0:30789`** — that's your agent's Control UI + WebSocket gateway (the port your Brev `openclaw` link maps to), running inside the sealed sandbox.

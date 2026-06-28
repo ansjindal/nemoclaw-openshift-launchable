@@ -6,10 +6,10 @@ OpenClaw gives every browser a device identity (a keypair). A remote browser mus
 
 ## 1. See pending requests
 
-When your browser shows “Device pairing required”, list the requests. Run the `openclaw` CLI **inside the sandbox** with `openshell sandbox exec`, where it holds the local owner identity:
+When your browser shows “Device pairing required”, list the requests. The lab shell's **`openclaw`** command is a helper that runs the OpenClaw CLI **inside your sandbox** (it execs through the gateway and points at the agent's gateway for you):
 
 ```bash
-openshell sandbox exec -n shifty -- openclaw devices list
+openclaw devices list
 ```
 
 You'll see a **Pending** row with a `Request` id (a UUID) for your browser, plus any already-`Paired` devices. If you already approved this browser, there may be no pending row — that's fine, continue.
@@ -19,11 +19,11 @@ You'll see a **Pending** row with a `Request` id (a UUID) for your browser, plus
 Copy the pending request id and approve it:
 
 ```bash
-openshell sandbox exec -n shifty -- openclaw devices approve <REQUEST_ID>
+openclaw devices approve <REQUEST_ID>
 ```
 
 <Callout type="tip" title="Approve the most recent">
-In a hurry? <code>openshell sandbox exec -n shifty -- openclaw devices approve --latest</code> selects the newest pending request.
+In a hurry? <code>openclaw devices approve --latest</code> selects the newest pending request.
 </Callout>
 
 ## 3. Reconnect
@@ -31,14 +31,14 @@ In a hurry? <code>openshell sandbox exec -n shifty -- openclaw devices approve -
 Back in the browser, reload — you're in. List devices again and your browser shows under **Paired**:
 
 ```bash
-openshell sandbox exec -n shifty -- openclaw devices list
+openclaw devices list
 ```
 
 ## Managing devices
 
 ```bash
-openshell sandbox exec -n shifty -- openclaw devices remove <DEVICE_ID>   # revoke a device
-openshell sandbox exec -n shifty -- openclaw devices clear                # clear all paired devices
+openclaw devices remove <DEVICE_ID>   # revoke a device
+openclaw devices clear                # clear all paired devices
 ```
 
 <Callout type="rh" title="The real-world posture">
