@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const resp = await callGateway<Record<string, unknown>>("getDraftPolicy", { name: AGENT, statusFilter: "" });
-    return NextResponse.json({ ok: true, ...resp });
+    return NextResponse.json({ ok: true, agent: AGENT, ...resp });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) });
   }

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { RefreshCw, Check, X, Globe, ShieldQuestion, UserPlus } from "lucide-react";
+import { RefreshCw, Check, X, Globe, ShieldQuestion, UserPlus, Box } from "lucide-react";
 
 type Endpoint = { host?: string; port?: number; ports?: number[]; rules?: { method?: string; pathGlob?: string; path?: string }[] };
 type Chunk = {
@@ -28,6 +28,7 @@ function age(ms: number | null): string {
 export function Approvals() {
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
+  const [agent, setAgent] = useState<string>("");
   const [draftVersion, setDraftVersion] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string>("");
@@ -43,6 +44,7 @@ export function Approvals() {
       setChunks(Array.isArray(dr?.chunks) ? dr.chunks : []);
       setDraftVersion(typeof dr?.draftVersion === "number" ? dr.draftVersion : null);
       setDevices(Array.isArray(dv?.pending) ? dv.pending : []);
+      setAgent(dr?.agent || dv?.agent || "");
     } finally { setLoading(false); }
   }, []);
 
@@ -101,6 +103,7 @@ export function Approvals() {
             return (
               <div key={c.id} className="rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-3" style={st === "pending" ? { borderColor: "#e0a80055" } : undefined}>
                 <div className="flex flex-wrap items-center gap-2">
+                  {agent && <span className="inline-flex items-center gap-1 rounded border border-[var(--color-line-2)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-fg-mut)]"><Box size={10} /> {agent}</span>}
                   <span className="font-mono text-[13px] text-[var(--color-fg)]">{dest(c)}</span>
                   {c.securityFlagged && <span className="rounded bg-[#ee555533] px-1.5 py-0.5 text-[9px] font-semibold text-[#ee7777]">security-flagged</span>}
                   <span className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ color: tone, border: `1px solid ${tone}55` }}>{st}</span>
@@ -134,6 +137,7 @@ export function Approvals() {
           {devices.map((d) => (
             <div key={d.requestId} className="rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-3" style={{ borderColor: "#e0a80055" }}>
               <div className="flex flex-wrap items-center gap-2">
+                {agent && <span className="inline-flex items-center gap-1 rounded border border-[var(--color-line-2)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--color-fg-mut)]"><Box size={10} /> {agent}</span>}
                 <span className="font-mono text-[13px] text-[var(--color-fg)]">{(d.deviceId || d.requestId).slice(0, 16)}…</span>
                 {d.isRepair && <span className="rounded bg-[var(--color-line-2)] px-1.5 py-0.5 text-[9px] text-[var(--color-fg-mut)]">scope upgrade</span>}
                 <span className="font-mono text-[10px] text-[var(--color-fg-mut)]">{(d.scopes.length ? d.scopes : d.roles).join(", ")}</span>

@@ -58,7 +58,7 @@ export async function GET() {
       scopes: Array.isArray(r.scopes) ? (r.scopes as string[]) : [],
       isRepair: !!r.isRepair, ts: typeof r.ts === "number" ? r.ts : null,
     })).filter((r) => r.requestId);
-    return NextResponse.json({ ok: true, pending });
+    return NextResponse.json({ ok: true, agent: AGENT, pending });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e), pending: [] });
   }
