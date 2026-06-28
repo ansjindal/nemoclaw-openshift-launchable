@@ -54,11 +54,11 @@ The agent is sealed under <strong>Landlock</strong> — it can only read <code>/
 
 So far the sandbox has just been **idling** — `create` only ran `true`, and the supervisor keeps the pod alive. Now we launch **OpenClaw** inside it, with the config you just wrote — on port `30789` (LAN bind so we can expose it next), password auth.
 
-The `--force` flag kills any existing listener on the port first, so this same command is also how you **restart** OpenClaw to pick up later config changes — run it again any time:
+We record the gateway's PID to `/sandbox/gateway.pid` and kill any previous instance first — so this same command is also how you **restart** OpenClaw to pick up later config changes (run it again any time):
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
-  'cd /sandbox && nohup openclaw gateway run --force --port 30789 --bind lan --auth password --password '"${PW:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 & sleep 6; tail -4 /sandbox/gateway.log'
+  'cd /sandbox && [ -f gateway.pid ] && kill "$(cat gateway.pid)" 2>/dev/null; sleep 1; nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${PW:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 & echo $! > gateway.pid; sleep 6; tail -4 /sandbox/gateway.log'
 ```
 
 You're looking for `listening on ws://0.0.0.0:30789`. That's the agent's Control UI + WebSocket gateway, running inside the sealed sandbox. (The `update available` and `Chrome extension relay` lines are harmless notices.)

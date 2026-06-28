@@ -142,7 +142,7 @@ fi
 
 # --- start the OpenClaw gateway (Control UI + WebSocket) inside the sandbox ---
 log "Starting the OpenClaw gateway on :${UI_PORT} (auth=password)"
-ox sh -c "cd /sandbox && nohup openclaw gateway run --force --port ${UI_PORT} --bind lan --auth password --password '${GW_PASSWORD}' --allow-unconfigured >/sandbox/gateway.log 2>&1 & sleep 7; tail -5 /sandbox/gateway.log" \
+ox sh -c "cd /sandbox && nohup openclaw gateway run --port ${UI_PORT} --bind lan --auth password --password '${GW_PASSWORD}' --allow-unconfigured >/sandbox/gateway.log 2>&1 & echo \$! > /sandbox/gateway.pid; sleep 7; tail -5 /sandbox/gateway.log" \
   || warn "Could not start the OpenClaw gateway."
 
 # --- expose the Control UI on the host via `openshell forward` (persistent systemd unit) ---
