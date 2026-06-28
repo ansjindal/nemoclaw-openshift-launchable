@@ -6,7 +6,13 @@ This lesson builds to the production pattern: skills enter through **one registr
 
 ## 1. Discover skills on ClawHub
 
-**ClawHub** is OpenClaw's plugin registry. Search it from inside your sandbox:
+Your agent ships **locked to your private registry** — by default it can't reach ClawHub at all (you'll confirm that in step 7). But to understand *why* that's the right posture, it helps to first meet the alternative — **ClawHub**, OpenClaw's public plugin registry — and see how you'd govern pulling skills straight from it. So open a **temporary door** for the next few steps:
+
+```bash
+openshell policy update shifty --add-endpoint 'clawhub.ai:443:full' --add-endpoint 'hub.openclaw.ai:443:full' --binary /usr/bin/node --binary /usr/local/bin/node
+```
+
+Now search ClawHub from inside your sandbox:
 
 ```bash
 openshell sandbox exec -n shifty -- openclaw plugins search hello
@@ -14,8 +20,8 @@ openshell sandbox exec -n shifty -- openclaw plugins search hello
 
 You'll get a short catalog, each line ending with its install command — e.g. `openclaw plugins install clawhub:openclaw-hello-world`. (Try `… plugins search weather` too.)
 
-<Callout type="note" title="That search already crossed a governed boundary">
-ClawHub lives at <code>clawhub.ai</code> + <code>hub.openclaw.ai</code>. Your sandbox is deny-by-default, so that search only worked because those hosts are in the <code>openclaw</code> rule of your policy. Allowing exactly those two hosts is how you say <em>"skills may come from ClawHub — and nowhere else."</em>
+<Callout type="note" title="That search only worked because you opened the door">
+ClawHub lives at <code>clawhub.ai</code> + <code>hub.openclaw.ai</code>. Your sandbox is deny-by-default and ships with <strong>neither</strong> — the search worked only because you just added them. That's the whole point: ClawHub is reachable <em>only</em> when your policy says so, and by the end of this lesson you'll take that door away for good, leaving your own registry as the single source.
 </Callout>
 
 ## 2. Install a skill — and vet which ones the policy allows
@@ -219,13 +225,9 @@ openshell sandbox exec -n shifty -- openclaw plugins install @workshop/hello-wor
 
 It's now a first-class package in *your* registry (`@workshop/hello-world@0.1.0`), installed from there — no ClawHub round-trip at install time. In production this "vet → mirror → publish" is a CI step; here you did it by hand to see the mechanics.
 
-## 7. Lock the agent to your registry
+## 7. Lock the door again — back to the default
 
-Steps 1–5 worked because the sandbox can still reach ClawHub and npm directly. The production posture is stricter: **the registry is the agent's only skill source.** Point npm's *default* registry at Verdaccio too — it uplinks to npmjs and caches deps — then drop ClawHub and npm from the policy, leaving **one egress endpoint**:
-
-```bash
-openshell sandbox exec -n shifty -- npm config set registry http://registry.openshell.svc.cluster.local:4873/
-```
+Everything from step 1 on only worked because you **opened ClawHub temporarily**. Now close it and return to the agent's shipped posture: **the registry is its only skill source.** npm's *default* registry already points at Verdaccio (it uplinks to npmjs and caches deps), so you just drop ClawHub and npm from the policy, leaving **one egress endpoint** — this is exactly the policy your agent boots with:
 
 ```yaml
 # locked policy — the only place the agent may fetch skills OR deps
