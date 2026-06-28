@@ -35,9 +35,12 @@ function getLang(node: ReactNode): string {
 }
 
 const SHELL_LANGS = ["bash", "sh", "shell", "console", "zsh"];
+// Reference fences: highlighted like bash but NEVER runnable (for commands we show but
+// don't want run from this lesson — e.g. "inspect/change later", or commands set elsewhere).
+const REF_LANGS = ["bash-ref", "sh-ref", "ref"];
 // Map a fence language to a registered highlight.js grammar (or null = render plain).
 function hljsLang(lang: string): string | null {
-  if (lang === "" || SHELL_LANGS.includes(lang)) return "bash";
+  if (lang === "" || SHELL_LANGS.includes(lang) || REF_LANGS.includes(lang)) return "bash";
   if (lang === "yaml" || lang === "yml") return "yaml";
   if (lang === "json") return "json";
   return null; // text, md, … → no highlighting
@@ -51,10 +54,11 @@ export function CodeBlock({ children }: { children?: ReactNode }) {
   const lang = getLang(children);
   const [copied, setCopied] = useState(false);
 
+  const isRef = REF_LANGS.includes(lang);
   const isShell = lang === "" || SHELL_LANGS.includes(lang);
   const hasCommand = code.split("\n").some((l) => l.trim() !== "" && !/^\s*#/.test(l));
-  const runnable = isShell && hasCommand;
-  const label = lang || "shell";
+  const runnable = isShell && hasCommand && !isRef; // reference fences are never runnable
+  const label = isRef ? "reference" : (lang || "shell");
 
   const grammar = hljsLang(lang);
   let html: string | null = null;

@@ -86,8 +86,9 @@ ox() { openshell sandbox exec -n "$AGENT" -- "$@"; }
 log "Creating gateway sandbox '${AGENT}' from ${SANDBOX_IMAGE}"
 openshell sandbox delete "$AGENT" >/dev/null 2>&1 || true
 sleep 2
-openshell sandbox create --name "$AGENT" "${POLICY_ARG[@]}" \
-  --from "$SANDBOX_IMAGE" -- sh -c 'sleep infinity' >/tmp/openclaw-create.log 2>&1 &
+# `-- true` exits immediately so create returns fast; the supervisor keeps the pod alive.
+openshell sandbox create --name "$AGENT" --no-tty "${POLICY_ARG[@]}" \
+  --from "$SANDBOX_IMAGE" -- true >/tmp/openclaw-create.log 2>&1 &
 log "Waiting for the sandbox supervisor to finish bootstrap (gateway phase Ready)"
 ready=false
 for i in $(seq 1 48); do
@@ -141,7 +142,7 @@ fi
 
 # --- start the OpenClaw gateway (Control UI + WebSocket) inside the sandbox ---
 log "Starting the OpenClaw gateway on :${UI_PORT} (auth=password)"
-ox sh -c "cd /sandbox && nohup openclaw gateway run --port ${UI_PORT} --bind lan --auth password --password '${GW_PASSWORD}' --allow-unconfigured >/sandbox/gateway.log 2>&1 & sleep 7; tail -5 /sandbox/gateway.log" \
+ox sh -c "cd /sandbox && nohup openclaw gateway run --force --port ${UI_PORT} --bind lan --auth password --password '${GW_PASSWORD}' --allow-unconfigured >/sandbox/gateway.log 2>&1 & sleep 7; tail -5 /sandbox/gateway.log" \
   || warn "Could not start the OpenClaw gateway."
 
 # --- expose the Control UI on the host via `openshell forward` (persistent systemd unit) ---

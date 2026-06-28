@@ -1,9 +1,16 @@
 You understand the pieces — now **play with the whole control plane like an operator** before you build for real: observe it, govern it, expose it, using the `openshell` CLI. We'll create a **throwaway sandbox** just to poke at (no OpenClaw, no model — that's Part IV). By the end you'll have touched every part of OpenShell. (All of this runs in the lab shell against your live gateway.)
 
-Spin up the throwaway sandbox:
+Spin up the throwaway sandbox. `--from` picks the sandbox image — here the OpenClaw community image (it's already pulled on the node; this lab won't actually run OpenClaw). `-- true` runs once and exits, so `create` **returns right away** while the supervisor keeps the box alive; `--no-tty` runs it non-interactively. (Pass a long-running command like `sleep 1800` instead and `create` would stay attached and block your shell.)
 
 ```bash
-openshell sandbox create --name lab -- sh -c 'sleep 1800'
+openshell sandbox create --name lab --no-tty \
+  --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest \
+  -- true
+```
+
+List your sandboxes:
+
+```bash
 openshell sandbox list
 ```
 

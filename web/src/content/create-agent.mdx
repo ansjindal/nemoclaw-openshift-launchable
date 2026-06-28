@@ -45,15 +45,16 @@ This policy needs no editing — use it as-is.
 One command creates the agent. Let's read each flag, then run it:
 
 - `--name shifty` — what we'll call it.
+- `--no-tty` — run non-interactively (skip the per-provider prompt) and don't attach a terminal.
 - `--policy policies/openclaw-sandbox.yaml` — the egress grant from Step 2.
 - `--from …/sandboxes/openclaw:latest` — the image. This OpenClaw sandbox image ships the `openclaw` agent **and** `iproute2` (the supervisor needs it to build the network seal).
-- `-- sh -c 'sleep infinity'` — the **initial command**. `openshell sandbox create` runs whatever you put after `--`; by default it would drop into a shell and exit. We pass `sleep infinity` so the pod simply **stays alive and idle** — we'll start OpenClaw inside it ourselves in the next lesson. (It's a deliberate "keep the box running" no-op, not OpenClaw itself.)
+- `-- true` — the **initial command**. It runs once and exits immediately, so `create` **returns right away** instead of blocking. The supervisor still **keeps the pod alive**, so the box stays up and idle — we'll start OpenClaw inside it ourselves in the next lesson. (If you instead pass a long-running command like `sleep infinity`, `create` stays attached and blocks your shell — so we don't.)
 
 ```bash
-openshell sandbox create --name shifty \
+openshell sandbox create --name shifty --no-tty \
   --policy policies/openclaw-sandbox.yaml \
   --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest \
-  -- sh -c 'sleep infinity'
+  -- true
 ```
 
 The gateway allocates a pod, sideloads its **supervisor** (the per-pod component that seals the network and mints the sandbox's identity), and applies your policy.

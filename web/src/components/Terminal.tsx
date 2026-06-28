@@ -57,12 +57,14 @@ export function Terminal({ title = "lab shell", fill = false }: { title?: string
         if (disposed) return;
 
         term = new XTerm({
-          fontFamily: "var(--font-mono), 'JetBrains Mono', 'SF Mono', 'Menlo', 'Consolas', monospace",
+          // A guaranteed-monospace system stack (no CSS var / webfont — xterm's renderer
+          // mis-measures those, which is what made text look uneven as it filled the pane).
+          fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'DejaVu Sans Mono', 'Liberation Mono', monospace",
           fontSize: 13,
           fontWeight: 400,
           fontWeightBold: 600,
-          lineHeight: 1.35,
-          letterSpacing: 0.2,
+          lineHeight: 1.2,
+          letterSpacing: 0,
           cursorBlink: true,
           cursorStyle: "bar",
           scrollback: 5000,

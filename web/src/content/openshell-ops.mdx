@@ -115,7 +115,7 @@ The gateway is also where inference is configured, as two control-plane objects 
 - A **provider** — a named bundle the gateway stores: an API type (`openai`, `anthropic`, …), the **endpoint** (config), and the **key** (a credential). The key lives here, gateway-side — never in a sandbox.
 - The **inference route** — the gateway saying "use *this provider* + *this model* for inference." One route is active at a time.
 
-```bash
+```bash-ref
 openshell provider create --name default --type openai \
   --credential OPENAI_API_KEY=…  --config OPENAI_BASE_URL=…   # key held by the gateway
 openshell inference set --provider default --model …          # bind it as the active route
@@ -123,6 +123,6 @@ openshell inference get                                       # confirm
 openshell provider list                                       # never prints key values
 ```
 
-An agent then sends its thinking to **`https://inference.local`**. The supervisor intercepts that virtual host *before* the egress policy runs and hands it to the gateway, which injects the real key and calls the provider upstream. Two consequences, both good: the agent **never holds your key**, and your real inference host **never needs a `network_policies` entry** (which is why the policy above has none). That's the OpenShell privacy router — you'll set it up, then watch a sandbox use it, in Part IV.
+These are shown for reference — you'll actually run them in **Part IV**, not here. An agent then sends its thinking to **`https://inference.local`**. The supervisor intercepts that virtual host *before* the egress policy runs and hands it to the gateway, which injects the real key and calls the provider upstream. Two consequences, both good: the agent **never holds your key**, and your real inference host **never needs a `network_policies` entry** (which is why the policy above has none). That's the OpenShell privacy router — you'll set it up, then watch a sandbox use it, in Part IV.
 
 Next: spin up a throwaway sandbox and drive every part of this — status, logs, policy, inference, forward — hands-on.

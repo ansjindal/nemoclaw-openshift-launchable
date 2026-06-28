@@ -16,37 +16,67 @@ OC=$(jq -n --arg model "$NEMOCLAW_MODEL" --arg pw "$PW" '{
                apiKey:"openshell-router", api:"openai-completions",
                models:[{id:$model,name:$model}] } } }
   }')
+echo "$OC" | jq .   # <- see exactly what we're about to write
 openshell sandbox exec -n shifty -- sh -c "mkdir -p /sandbox/.openclaw && echo $(printf '%s' "$OC" | base64 -w0) | base64 -d > /sandbox/.openclaw/openclaw.json"
 openshell sandbox exec -n shifty -- openclaw config validate
 ```
 
-`Config valid` means OpenClaw accepted it. Note `apiKey` is the literal string `openshell-router`, a placeholder — the gateway swaps in your real key when it routes `inference.local` upstream.
+That `echo "$OC" | jq .` prints the exact `openclaw.json` you're staging — it looks like this:
+
+```json
+{
+  "gateway": {
+    "auth": { "password": "openclaw" },
+    "remote": { "password": "openclaw" },
+    "controlUi": { "dangerouslyAllowHostHeaderOriginFallback": true }
+  },
+  "agents": { "defaults": { "model": { "primary": "custom/<your-model>" } } },
+  "models": {
+    "providers": {
+      "custom": {
+        "baseUrl": "https://inference.local/v1",
+        "apiKey": "openshell-router",
+        "api": "openai-completions",
+        "models": [ { "id": "<your-model>", "name": "<your-model>" } ]
+      }
+    }
+  }
+}
+```
+
+`Config valid` means OpenClaw accepted it. Two things to notice: `models.providers.custom.baseUrl` is `inference.local` (not your real endpoint), and `apiKey` is the literal placeholder `openshell-router` — the gateway swaps in your real key when it routes the call upstream.
 
 <Callout type="note" title="Why stage through the gateway, not oc cp">
 The agent is sealed under <strong>Landlock</strong> — it can only read <code>/sandbox</code> and <code>/tmp</code>. A file you <code>oc cp</code> into <code>/workspace</code> is invisible to it. Writing through <code>openshell sandbox exec</code> lands in the agent's real view. Same isolation, everywhere.
 </Callout>
 
-## 2. Start the OpenClaw gateway
+## 2. Start (or restart) the OpenClaw gateway
 
-Launch it on port `30789` (LAN bind so we can expose it next), password auth:
+So far the sandbox has just been **idling** — `create` only ran `true`, and the supervisor keeps the pod alive. Now we launch **OpenClaw** inside it, with the config you just wrote — on port `30789` (LAN bind so we can expose it next), password auth.
+
+The `--force` flag kills any existing listener on the port first, so this same command is also how you **restart** OpenClaw to pick up later config changes — run it again any time:
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
-  'cd /sandbox && nohup openclaw gateway run --port 30789 --bind lan --auth password --password '"${PW:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 & sleep 6; tail -4 /sandbox/gateway.log'
+  'cd /sandbox && nohup openclaw gateway run --force --port 30789 --bind lan --auth password --password '"${PW:-openclaw}"' --allow-unconfigured >/sandbox/gateway.log 2>&1 & sleep 6; tail -4 /sandbox/gateway.log'
 ```
 
-You're looking for `listening on ws://0.0.0.0:30789`. That's the agent's Control UI + WebSocket gateway, running inside the sealed sandbox.
+You're looking for `listening on ws://0.0.0.0:30789`. That's the agent's Control UI + WebSocket gateway, running inside the sealed sandbox. (The `update available` and `Chrome extension relay` lines are harmless notices.)
 
 ## 3. Prove the brain works
 
-Have the agent run one turn — this call goes out to `inference.local` and comes back through the gateway's router:
+Have the agent run one turn. We pass `--local` so it runs the agent **embedded** (a one-shot, no Control-UI session needed) — it still sends its thinking to `inference.local`:
 
 ```bash
-openshell sandbox exec -n shifty -- sh -c 'cd /sandbox && openclaw agent --agent main -m "Reply with exactly: PONG" --session-id smoke'
+openshell sandbox exec -n shifty -- sh -c 'cd /sandbox && openclaw agent --local --agent main -m "Reply with exactly: PONG" --session-id smoke'
 ```
 
-If it answers, the whole chain is live: the agent reached the model **without ever holding your key**.
+You should get back `PONG`. If it answers, the whole chain is live: the agent reached the model **without ever holding your key**.
+
+<Callout type="note" title="Why --local">
+Without <code>--local</code>, <code>openclaw agent</code> first tries to reach a running OpenClaw gateway on its <em>default</em> port (18789) — ours is on 30789, so it prints <code>Gateway agent failed; falling back to embedded</code> and then works anyway. <code>--local</code> just runs embedded directly, so you skip that noisy detour for a one-shot test.
+</Callout>
 
 <Callout type="rh" title="The privacy boundary, made real">
-That reply travelled: agent → <code>inference.local</code> → supervisor (intercepts before policy) → gateway router → it injects your real key → your inference endpoint → back. The agent never saw the key, and your real endpoint never appeared in its egress policy. Next: open the UI in your browser.
+That reply travelled: agent → <code>inference.local</code> → supervisor (intercepts before policy) → the OpenShell gateway's inference router → it injects your real key → your inference endpoint → back. The agent never saw the key, and your real endpoint never appeared in its egress policy. Next: open the UI in your browser.
 </Callout>

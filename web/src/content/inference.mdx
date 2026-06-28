@@ -103,16 +103,29 @@ You should see `Provider: default` and your `Model:`. That's the route every age
 
 ## Inspect or change it later
 
-You don't have to redo everything to tweak one thing:
+You don't have to redo everything to tweak one thing. List the providers you've registered:
 
 ```bash
-openshell provider list                 # all providers you've registered
-openshell provider get default          # one provider's type/config (key is not printed)
-openshell inference update --model NEW   # swap the model, keep the provider
-openshell provider delete default       # remove it (then re-create to rotate the key)
+openshell provider list
 ```
 
-To **rotate a key**, delete and re-create the provider with the new `--credential`; the route keeps working because it references the provider by name.
+Inspect one — the key *value* is never printed, only its name:
+
+```bash
+openshell provider get default
+```
+
+To swap the model but keep the provider (reference — run it when you actually want to change models):
+
+```bash-ref
+openshell inference update --model <new-model>
+```
+
+To remove a provider (reference). To **rotate a key**, delete and re-create it with the new `--credential` — the route keeps working because it points to the provider by name:
+
+```bash-ref
+openshell provider delete default
+```
 
 <Callout type="rh" title="Brain wired — through the router">
 Endpoint verified, registered as a gateway provider, and the inference route is set. Your key lives in the gateway, not the agent. When you build the agent next, it points at <code>https://inference.local</code> — so its egress policy won't even mention your inference host. On to creating the agent.
