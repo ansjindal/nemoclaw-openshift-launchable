@@ -54,7 +54,13 @@ network_policies:
     endpoints:
       - { host: clawhub.ai, port: 443, access: full }
       - { host: hub.openclaw.ai, port: 443, access: full }
-      - { host: registry.npmjs.org, port: 443, access: full }
+      # npm fetches SCOPED packages as /@scope%2fname — the encoded '/' (%2F). The proxy's
+      # credential-relay path parser rejects %2F unless the endpoint is protocol: rest with
+      # allow_encoded_slash: true. Without this, installing any plugin with a scoped dep
+      # (e.g. openclaw-hello-world -> @sinclair/typebox) hangs at "Installing plugin
+      # dependencies". (allow_encoded_slash is NOT settable via the CLI --add-endpoint;
+      # it must be set here in the policy YAML.)
+      - { host: registry.npmjs.org, port: 443, access: full, protocol: rest, allow_encoded_slash: true }
     binaries:
       - { path: /usr/bin/node }
       - { path: /usr/local/bin/node }

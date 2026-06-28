@@ -29,10 +29,13 @@ function parseDecisions(text: string): Decision[] {
     const rest = m[3];
     const http = /\b([A-Z]+)\s+(https?:\/\/[^\s[]+)/.exec(rest);
     const arrow = /->\s*([^\s[]+)/.exec(rest);
+    // Fallback: some denials (e.g. the http-parser %2F rejection) put host:port right
+    // after DENIED with no arrow/method — grab the first host:port token.
+    const hostport = /(?:^|\s)([a-z0-9][a-z0-9.-]*:\d+)/i.exec(rest);
     out.push({
       decision: m[2] as "ALLOWED" | "DENIED",
       kind: m[1],
-      target: http ? `${http[1]} ${http[2].replace(/^https?:\/\//, "")}` : (arrow ? arrow[1] : ""),
+      target: http ? `${http[1]} ${http[2].replace(/^https?:\/\//, "")}` : (arrow ? arrow[1] : (hostport ? hostport[1] : "")),
       binary: (/(\/[^\s(]+)\(\d+\)/.exec(rest) || [])[1] || "",
       policy: (/\[policy:([^\s\]]+)/.exec(rest) || [])[1] || "",
       engine: (/engine:([^\s\]]+)/.exec(rest) || [])[1] || "",
