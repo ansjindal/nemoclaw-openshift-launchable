@@ -53,8 +53,15 @@ for sa in openshell default; do
     warn "Could not add anyuid SCC to '$sa'."
 done
 
-VERSION_ARG=()
-[[ -n "${OPENSHELL_VERSION:-}" ]] && VERSION_ARG=(--version "$OPENSHELL_VERSION")
+# PIN the chart version — DO NOT track "latest". The whole stack is validated against a
+# specific gateway/supervisor build: 0.0.71 (helm-chart-0.0.71, app 0.0.71) provisions
+# clean and brings up healthy sandboxes (verified end-to-end 2026-06-28). Tracking latest
+# risks pulling a gateway that's incompatible with the pinned agent-sandbox v0.4.6 above,
+# or a supervisor build that regresses session bootstrap. Override with OPENSHELL_VERSION
+# to test a newer chart, then re-validate before bumping this default.
+OPENSHELL_VERSION="${OPENSHELL_VERSION:-0.0.71}"
+VERSION_ARG=(--version "$OPENSHELL_VERSION")
+log "Pinning OpenShell chart version ${OPENSHELL_VERSION}"
 
 log "helm upgrade --install openshell (in-cluster gateway = Kubernetes compute driver)"
 # upgrade --install is idempotent — a re-run reuses the existing release instead of failing
