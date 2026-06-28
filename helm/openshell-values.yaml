@@ -23,7 +23,7 @@ server:
   auth:
     allowUnauthenticatedUsers: true
   # The image each gateway-created sandbox pod runs (the OpenShell sandbox runtime).
-  sandboxImage: ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest
+  sandboxImage: ghcr.io/ansjindal/openclaw-sandbox:2026.6.10
   sandboxImagePullPolicy: IfNotPresent
   # Sandbox pods land in the release namespace (openshell) when empty — follow the
   # official default; the chart only creates sandbox RBAC inside it.

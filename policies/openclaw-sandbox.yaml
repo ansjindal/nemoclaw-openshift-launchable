@@ -48,12 +48,25 @@ network_policies:
   openclaw:
     name: openclaw
     endpoints:
-      - { host: api.openclaw.ai, port: 443 }
-      - { host: docs.openclaw.ai, port: 443 }
-      - { host: clawhub.nvidia.com, port: 443 }
-      - { host: registry.npmjs.org, port: 443 }
+      - { host: api.openclaw.ai, port: 443, access: full }
+      - { host: docs.openclaw.ai, port: 443, access: full }
+      - { host: clawhub.nvidia.com, port: 443, access: full }
+      - { host: registry.npmjs.org, port: 443, access: full }
     binaries:
       - { path: /usr/bin/node }
       - { path: /usr/local/bin/node }
       - { path: /usr/bin/npm }
       - { path: /usr/local/bin/npm }
+
+  # --- web search (DuckDuckGo, key-free) — the agent scrapes DuckDuckGo's non-JS
+  #     search pages, so allow those hosts for node. Enabled via openclaw config
+  #     tools.web.search.provider=duckduckgo. ---
+  websearch:
+    name: websearch
+    endpoints:
+      - { host: duckduckgo.com, port: 443, access: full }
+      - { host: html.duckduckgo.com, port: 443, access: full }
+      - { host: lite.duckduckgo.com, port: 443, access: full }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/node }

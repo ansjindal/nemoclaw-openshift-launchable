@@ -20,7 +20,7 @@ NS="${OPENSHELL_NAMESPACE:-openshell}"
 AGENT="${OPENCLAW_AGENT_NAME:-shifty}"
 UI_PORT="${OPENCLAW_UI_PORT:-30789}"
 GW_PASSWORD="${OPENCLAW_GATEWAY_PASSWORD:-openshell-wad26}"
-SANDBOX_IMAGE="${OPENCLAW_SANDBOX_IMAGE:-ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest}"
+SANDBOX_IMAGE="${OPENCLAW_SANDBOX_IMAGE:-ghcr.io/ansjindal/openclaw-sandbox:2026.6.10}"
 GW_URL="${OPENSHELL_CLI_ENDPOINT:-http://127.0.0.1:30808}"
 
 # Inference creds (optional — if missing, the agent deploys UNCONFIGURED and the user
@@ -108,10 +108,14 @@ if [[ "$CONFIGURED" == true ]]; then
   # the gateway's provider injects the real key when it routes the call upstream.
   OPENCLAW_JSON="$(jq -n \
     --arg url "$INFERENCE_LOCAL_URL" --arg model "$MODEL" \
-    --arg api "$INFERENCE_API" --arg pw "$GW_PASSWORD" \
+    --arg api "$INFERENCE_API" --arg pw "$GW_PASSWORD" --arg port "$UI_PORT" \
     '{
-       gateway: { auth: { password: $pw }, remote: { password: $pw },
-                  controlUi: { dangerouslyAllowHostHeaderOriginFallback: true } },
+       gateway: { auth: { password: $pw },
+                  remote: { url: ("ws://127.0.0.1:" + $port), password: $pw },
+                  controlUi: { dangerouslyAllowHostHeaderOriginFallback: true },
+                  http: { endpoints: { chatCompletions: { enabled: true } } } },
+       plugins: { entries: { duckduckgo: { enabled: true } } },
+       tools:   { web: { search: { provider: "duckduckgo" } } },
        agents:  { defaults: { model: { primary: ("custom/" + $model) } } },
        models:  { providers: { custom: {
          baseUrl: $url, apiKey: "openshell-router", api: $api,

@@ -10,7 +10,7 @@
 # Apply it to a NEW gateway sandbox at creation:
 #   openshell sandbox create --name pod-doctor \
 #     --policy policies/presets/cluster-copilot.yaml \
-#     --from ghcr.io/nvidia/openshell-community/sandboxes/openclaw:latest \
+#     --from ghcr.io/ansjindal/openclaw-sandbox:2026.6.10 \
 #     -- sh -c 'sleep infinity'
 #
 # SCHEMA NOTE: this is the real OpenShell sandbox-policy format (see the shipped
