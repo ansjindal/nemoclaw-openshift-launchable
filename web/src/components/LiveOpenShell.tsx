@@ -68,7 +68,8 @@ export function LiveOpenShell() {
     setDetail("");
     try {
       const q = t === "policy" ? `policy=${encodeURIComponent(name)}`
-        : `logs=${encodeURIComponent(name)}&source=${t === "decisions" ? "sandbox" : src}`;
+        : t === "decisions" ? `logs=${encodeURIComponent(name)}&source=sandbox&n=3000`
+        : `logs=${encodeURIComponent(name)}&source=${src}`;
       const r = await fetch(`/api/openshell?${q}`, { cache: "no-store" });
       const j = await r.json();
       setDetail(j.text ?? j.error ?? "(no output)");

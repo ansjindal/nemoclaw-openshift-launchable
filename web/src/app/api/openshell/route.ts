@@ -64,7 +64,10 @@ export async function GET(req: Request) {
       if (!validName(logsFor)) return NextResponse.json({ ok: false, error: "bad name" });
       const src = url.searchParams.get("source") ?? "all";
       const source = ["gateway", "sandbox", "all"].includes(src) ? src : "all";
-      const out = await openshell(["logs", logsFor, "-n", "120", "--source", source]).catch((e) => `(${e instanceof Error ? e.message : e})`);
+      // Optional line count (the Policy-decisions view pulls a large tail, since egress
+      // decisions are sparse and a single skill install can spew >120 lines after them).
+      const n = Math.min(Math.max(parseInt(url.searchParams.get("n") || "120", 10) || 120, 1), 4000);
+      const out = await openshell(["logs", logsFor, "-n", String(n), "--source", source]).catch((e) => `(${e instanceof Error ? e.message : e})`);
       return NextResponse.json({ ok: true, name: logsFor, source, text: out });
     }
 
