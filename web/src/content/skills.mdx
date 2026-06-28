@@ -14,32 +14,9 @@ You'll get a short catalog, each line ending with its install command — e.g. `
 ClawHub lives at <code>clawhub.ai</code> + <code>hub.openclaw.ai</code>. Your sandbox is deny-by-default, so that search only worked because those hosts are in the <code>openclaw</code> rule of your policy. Allowing exactly those two hosts is how you say <em>"skills may come from ClawHub — and nowhere else."</em>
 </Callout>
 
-## 2. Install a skill — the policy decides where from
+## 2. Install a skill — and vet which ones the policy allows
 
-Before the happy path, watch deny-by-default work. Try installing a skill from a source your policy **doesn't** list — a GitHub repo:
-
-```bash
-openshell sandbox exec -n shifty -- openclaw plugins install git:github.com/openclaw/example-plugin
-```
-
-It's refused before any code arrives:
-
-```text
-failed to clone openclaw/example-plugin: ... CONNECT tunnel failed, response 403
-```
-
-That `403` is the supervisor's egress proxy denying the connection. The audit trail names exactly what it blocked:
-
-```bash
-openshell logs shifty --source sandbox | grep -i github
-```
-
-```text
-NET:OPEN  DENIED /usr/lib/git-core/git-remote-http -> github.com:443 [engine:opa]
-          [reason: endpoint github.com:443 is not allowed by any policy]
-```
-
-So a skill can only be pulled from a host your policy allows. Here's the rule that governs it — the `openclaw` block of your sandbox policy:
+ClawHub is an allowed *source*: the `openclaw` rule in your sandbox policy permits its registry (`clawhub.ai`) and package CDN (`hub.openclaw.ai`), for `node`/`npm` only.
 
 ```yaml
 network_policies:
@@ -55,7 +32,41 @@ network_policies:
       - { path: /usr/local/bin/npm }
 ```
 
-`github.com` isn't on that list, so the install was denied. `clawhub.ai` **is** — so a ClawHub install goes through. Install the verified hello-world skill:
+But `access: full` lets the agent install **any** ClawHub package. OpenShell's egress proxy can do better — it terminates TLS and evaluates the **HTTP path** (`engine:l7`), so you can vet ClawHub **package-by-package**. Switch the registry to enforced mode and block one you don't trust:
+
+```bash
+openshell policy update shifty --remove-endpoint 'clawhub.ai:443'
+openshell policy update shifty --add-endpoint 'clawhub.ai:443:read-only:rest:enforce' --binary /usr/bin/node --binary /usr/local/bin/node
+openshell policy update shifty --add-deny 'clawhub.ai:443:GET:/api/v1/packages/weather-api-hub'
+openshell policy update shifty --add-deny 'clawhub.ai:443:GET:/api/v1/packages/weather-api-hub/**'
+```
+
+Now try to install that package — it's refused at layer 7, before any code lands:
+
+```bash
+openshell sandbox exec -n shifty -- openclaw plugins install clawhub:weather-api-hub
+```
+
+```text
+ClawHub /api/v1/packages/weather-api-hub failed (403): {
+  "error": "policy_denied",
+  "detail": "GET /api/v1/packages/weather-api-hub blocked by deny rule",
+  "host": "clawhub.ai", "layer": "l7", "policy": "allow_clawhub_ai_443"
+}
+```
+
+The audit records the decision:
+
+```bash
+openshell logs shifty --source sandbox | grep weather-api-hub
+```
+
+```text
+HTTP:GET  DENIED GET .../packages/weather-api-hub [policy:allow_clawhub_ai_443 engine:l7]
+          [reason: blocked by deny rule]
+```
+
+A package you **haven't** blocked still installs. Pull the vetted hello-world skill:
 
 ```bash
 openshell sandbox exec -n shifty -- openclaw plugins install clawhub:openclaw-hello-world
@@ -67,22 +78,26 @@ It downloads from ClawHub and registers. Confirm it's there:
 openshell sandbox exec -n shifty -- openclaw plugins list
 ```
 
-You'll see **Hello World** — `enabled`, version `0.1.0`, "Registers a `hello` tool and ships a matching skill." Your agent just gained a capability — from a source you explicitly allowed.
+You'll see **Hello World** — `enabled`, version `0.1.0`, "Registers a `hello` tool and ships a matching skill." So the agent installs from ClawHub — but only the packages you let through.
 
-## 3. Governance, layer one — *where skills come from* (OpenShell)
+<Callout type="note" title="Blocklist, not a one-line allowlist">
+This is a <strong>blocklist</strong>: deny the packages you don't trust. OpenShell's L7 model is default-allow once a host is granted, and <strong>deny rules win over allow rules</strong> — so you can't write "allow only package X" in a single rule (a <code>deny /packages/**</code> would also kill X). The practical recipe: allow ClawHub as a source, <code>--add-deny</code> the packages you reject, and — next — enable only the skills you bless.
+</Callout>
 
-That install is fully attributable. Pull the audit trail:
+## 3. Governance, layer one — every install is on the record
+
+Allowed or denied, each install is an audited OCSF event. Pull the trail for both packages from step 2:
 
 ```bash
-openshell logs shifty --source sandbox | grep -i clawhub.ai
+openshell logs shifty --source sandbox | grep -iE 'packages/(weather-api-hub|openclaw-hello-world)'
 ```
 
 ```text
-NET:OPEN  ALLOWED /usr/bin/node -> clawhub.ai:443 [policy:openclaw engine:opa]
-HTTP:GET  ALLOWED GET http://clawhub.ai:443/api/v1/packages/openclaw-hello-world/download
+HTTP:GET  DENIED  .../packages/weather-api-hub                 [policy:allow_clawhub_ai_443 engine:l7]
+HTTP:GET  ALLOWED .../packages/openclaw-hello-world/download   [policy:allow_clawhub_ai_443 engine:l7]
 ```
 
-Every fetch is an OCSF event: **allowed**, by the `openclaw` policy rule, evaluated by the **OPA** engine, naming the exact package URL. Delete `clawhub.ai`/`hub.openclaw.ai` from the policy and re-run the install — it's **denied** (you saw this exact denial in the policy lesson). That's the answer to *"can I allow only certain skills?"* at the supply line: **you whitelist the registries skills may come from, and every install is logged.**
+Both decisions are fully attributable — the rule that decided (`allow_clawhub_ai_443`), the exact package URL, the binary (`/usr/bin/node`), the layer (`l7`). In production these stream to your SIEM: every skill install, allowed or blocked, logged and traceable to the policy that governed it. That's the answer to *"can I prove which skills my agents pulled — and which I refused?"* — yes, down to the package.
 
 ## 4. Governance, layer two — *which skills run* (OpenClaw allowlist)
 
@@ -109,24 +124,7 @@ Even an <em>enabled</em> skill is still inside the seal. A skill that tries to r
 Community plugins must resolve their own runtime dependencies. If one fails on restart (<code>Cannot find module …</code>), it's dropped from the registry — diagnose with <code>openclaw plugins inspect &lt;id&gt; --runtime</code>. Prefer skills that bundle their deps.
 </Callout>
 
-## 5. Govern installs at the *package* level (advanced)
-
-Layers one and two gate skills by **registry** (ClawHub or not) and by **enablement** (which run). OpenShell can go one level finer. Its egress proxy terminates TLS and evaluates the **HTTP path** — that's why your audit log named the exact package URL and tagged it `engine:l7` (layer 7), not just `engine:opa` (the L4 tunnel). Path-aware policy means you can govern *which packages* may even be fetched.
-
-Block one specific skill with a deny rule (`host:port:METHOD:path_glob`):
-
-```bash
-openshell policy update shifty \
-  --add-deny 'clawhub.ai:443:GET:/api/v1/packages/zentao-to-code/**'
-```
-
-Now `openclaw plugins install clawhub:zentao-to-code` is refused at layer 7 — a precise `403 policy_denied` ("blocked by deny rule"), recorded as `DENIED … [engine:l7]` in `openshell logs` — while every other skill still installs normally.
-
-<Callout type="note" title="Blocklist, not a one-line allowlist">
-A subtlety worth knowing: once a host is granted, it's <strong>default-allow</strong>, and <strong>deny rules win over allow rules</strong>. So a broad <code>--add-deny</code> on the package path combined with a narrow <code>--add-allow</code> for one package denies <em>both</em> — the deny wins. Path rules are therefore natural as a <strong>blocklist</strong>: deny the packages you don't want. The practical recipe for "only these skills" is to combine the layers — registry-allow (layer one) + a per-package <em>deny</em> for anything risky (this layer) + the <code>plugins.entries</code> enablement list (layer two). Together they let you ship an agent that can install from ClawHub, but never that package, and only runs the skills you blessed.
-</Callout>
-
-## 6. Author your own skill
+## 5. Author your own skill
 
 A skill is a small TypeScript plugin. Scaffold one (this runs in the sandbox and just writes files):
 
