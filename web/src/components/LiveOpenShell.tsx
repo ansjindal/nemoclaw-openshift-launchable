@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { RefreshCw, Server, Box, ScrollText, Shield, Cpu, KeyRound } from "lucide-react";
+import { RefreshCw, Server, Box, ScrollText, Shield, Cpu, KeyRound, ShieldCheck } from "lucide-react";
 
 type Sandbox = { name: string; phase: string; ready: boolean; restarts: number; created: string | null };
 type Provider = { name: string; type: string; credentialKeys: string[]; configKeys: string[] };
@@ -16,7 +16,31 @@ function age(iso: string | null): string {
   return `${Math.floor(s / 86400)}d`;
 }
 
-type Tab = "logs" | "policy";
+type Tab = "logs" | "policy" | "decisions";
+
+// Parse the sandbox OCSF feed into policy decisions (every egress attempt the supervisor
+// allowed or denied): NET:OPEN (L4) + HTTP:* (L7), with the binary, target, rule, engine.
+type Decision = { decision: "ALLOWED" | "DENIED"; kind: string; target: string; binary: string; policy: string; engine: string; reason: string };
+function parseDecisions(text: string): Decision[] {
+  const out: Decision[] = [];
+  for (const line of text.split("\n")) {
+    const m = /(NET:OPEN|HTTP:[A-Z]+)\s+\[[A-Z]+\]\s+(ALLOWED|DENIED)\s+(.*)/.exec(line);
+    if (!m) continue;
+    const rest = m[3];
+    const http = /\b([A-Z]+)\s+(https?:\/\/[^\s[]+)/.exec(rest);
+    const arrow = /->\s*([^\s[]+)/.exec(rest);
+    out.push({
+      decision: m[2] as "ALLOWED" | "DENIED",
+      kind: m[1],
+      target: http ? `${http[1]} ${http[2].replace(/^https?:\/\//, "")}` : (arrow ? arrow[1] : ""),
+      binary: (/(\/[^\s(]+)\(\d+\)/.exec(rest) || [])[1] || "",
+      policy: (/\[policy:([^\s\]]+)/.exec(rest) || [])[1] || "",
+      engine: (/engine:([^\s\]]+)/.exec(rest) || [])[1] || "",
+      reason: (/\[reason:([^\]]+)\]/.exec(rest) || [])[1] || "",
+    });
+  }
+  return out.reverse(); // newest first
+}
 
 export function LiveOpenShell() {
   const [data, setData] = useState<Data | null>(null);
@@ -43,7 +67,8 @@ export function LiveOpenShell() {
     setDetailLoading(true);
     setDetail("");
     try {
-      const q = t === "logs" ? `logs=${encodeURIComponent(name)}&source=${src}` : `policy=${encodeURIComponent(name)}`;
+      const q = t === "policy" ? `policy=${encodeURIComponent(name)}`
+        : `logs=${encodeURIComponent(name)}&source=${t === "decisions" ? "sandbox" : src}`;
       const r = await fetch(`/api/openshell?${q}`, { cache: "no-store" });
       const j = await r.json();
       setDetail(j.text ?? j.error ?? "(no output)");
@@ -166,10 +191,10 @@ export function LiveOpenShell() {
           <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-line)] px-3 py-2">
             <span className="font-mono text-[12px] text-[var(--color-fg)]">{sel}</span>
             <div className="ml-2 inline-flex overflow-hidden rounded-md border border-[var(--color-line-2)] text-[11px]">
-              {(["logs", "policy"] as Tab[]).map((t) => (
+              {(["logs", "decisions", "policy"] as Tab[]).map((t) => (
                 <button key={t} onClick={() => setTab(t)} className="inline-flex items-center gap-1 px-2.5 py-1 font-medium transition"
                   style={{ background: tab === t ? "var(--color-nv)" : "transparent", color: tab === t ? "#06080b" : "var(--color-fg-dim)" }}>
-                  {t === "logs" ? <ScrollText size={11} /> : <Shield size={11} />} {t === "logs" ? "Logs / audit" : "Policy"}
+                  {t === "logs" ? <ScrollText size={11} /> : t === "decisions" ? <ShieldCheck size={11} /> : <Shield size={11} />} {t === "logs" ? "Logs / audit" : t === "decisions" ? "Policy decisions" : "Policy"}
                 </button>
               ))}
             </div>
@@ -185,7 +210,35 @@ export function LiveOpenShell() {
               <RefreshCw size={11} className={detailLoading ? "animate-spin" : ""} /> reload
             </button>
           </div>
-          <pre className="max-h-80 overflow-auto p-3 font-mono text-[11px] leading-relaxed text-[var(--color-code-fg)]">{detailLoading ? "loading…" : (detail || "(no output)")}</pre>
+          {tab === "decisions" ? (
+            <div className="max-h-80 overflow-auto p-2">
+              {detailLoading ? (
+                <p className="p-2 font-mono text-[11px] text-[var(--color-fg-mut)]">loading…</p>
+              ) : (() => {
+                const decisions = parseDecisions(detail);
+                if (decisions.length === 0) return <p className="p-2 font-mono text-[11px] text-[var(--color-fg-mut)]">No egress decisions in the recent feed. (The agent hasn&apos;t tried to reach anything lately.)</p>;
+                return (
+                  <div className="space-y-1">
+                    {decisions.map((d, i) => {
+                      const allow = d.decision === "ALLOWED";
+                      const color = allow ? "var(--color-nv-bright)" : "#ee7777";
+                      return (
+                        <div key={i} className="flex flex-wrap items-center gap-2 rounded border border-[var(--color-line-2)] bg-[var(--color-bg)] px-2 py-1">
+                          <span className="rounded px-1.5 py-0.5 text-[9px] font-bold" style={{ color, border: `1px solid ${color}55` }}>{allow ? "ALLOW" : "DENY"}</span>
+                          <span className="font-mono text-[11px] text-[var(--color-fg)]">{d.target || "—"}</span>
+                          {d.binary && <span className="font-mono text-[9px] text-[var(--color-fg-mut)]">{d.binary}</span>}
+                          <span className="ml-auto font-mono text-[9px] text-[var(--color-fg-mut)]">{d.policy ? `${d.policy}` : ""}{d.engine ? ` · ${d.engine}` : ""}</span>
+                          {!allow && d.reason && <p className="w-full font-mono text-[9px] text-[#ee7777]/80">{d.reason}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          ) : (
+            <pre className="max-h-80 overflow-auto p-3 font-mono text-[11px] leading-relaxed text-[var(--color-code-fg)]">{detailLoading ? "loading…" : (detail || "(no output)")}</pre>
+          )}
         </div>
       )}
 
