@@ -131,23 +131,30 @@ Community plugins must resolve their own runtime dependencies. If one fails on r
 
 ## 5. Author your own skill
 
-A skill is a small TypeScript plugin. Scaffold one (this runs in the sandbox and just writes files):
+A skill is a small **TypeScript plugin** — and now that npm works inside the sandbox (the `allow_encoded_slash` fix above unblocked scoped deps), you can scaffold, build, and install one **end-to-end without leaving it**.
+
+Scaffold a project:
 
 ```bash
-openshell sandbox exec -n shifty -- openclaw plugins init my-skill --name "My Skill" --directory /sandbox/my-skill
+openshell sandbox exec -n shifty -- openclaw plugins init my-skill --name "My Skill" --directory /sandbox/myskill
 ```
 
-That creates a project — `openclaw.plugin.json` (the manifest), `src/index.ts` (your tool/skill code), `package.json`, and tests. You edit `src/index.ts` to register a tool, then **build and package** it:
+That writes `openclaw.plugin.json` (the manifest), `src/index.ts` (your tool code), `package.json`, and a test. Edit `src/index.ts` to register your tool, then build + package it:
 
-```bash-ref
-# Build produces ./dist/index.js, then packages it as a plugin:
-npm install
-npm run plugin:build        # = tsc, then `openclaw plugins build --entry ./dist/index.js`
-openclaw plugins install ./my-skill
+```bash
+openshell sandbox exec -n shifty -- sh -c 'cd /sandbox/myskill && npm install && npm run plugin:build'
 ```
 
-<Callout type="note" title="Build on the host or CI, install the artifact">
-The sealed sandbox has no general outbound npm path (only the hosts in your policy), so a from-source <code>npm install</code> won't resolve a full toolchain inside it. In practice you <strong>build the plugin on your workstation or CI</strong> — where you have npm — and install the built result (a folder with <code>dist/</code>, a <code>.tgz</code>, or by publishing to ClawHub). That keeps the sandbox locked down while still letting you ship custom skills. The governance in steps 3–4 applies identically to your own skills.
+`npm run plugin:build` runs `tsc` then `openclaw plugins build` → emits `dist/index.js` and finalizes the manifest. Install your built skill:
+
+```bash
+openshell sandbox exec -n shifty -- openclaw plugins install /sandbox/myskill
+```
+
+You'll see **`Installed plugin: my-skill`** — its `openclaw` peer dependency is linked from the runtime, so you don't vendor it. Restart the gateway to load it (the same restart from *Give It a Brain*), then it appears in `plugins list`, `enabled`, governed by exactly the same policy (registry + enablement + egress) as any ClawHub skill.
+
+<Callout type="note" title="In production, build in CI">
+Building in the sandbox is fine for the workshop. For a real deployment you'd build the plugin in <strong>CI</strong> and install the artifact (a folder with <code>dist/</code>, a <code>.tgz</code>, or publish it to ClawHub), keeping the sandbox image minimal — the install + governance are identical either way.
 </Callout>
 
 <Callout type="rh" title="Skills are capabilities you can prove">
