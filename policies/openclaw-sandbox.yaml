@@ -44,13 +44,16 @@ network_policies:
   # Inference is NOT listed here — the agent reaches the model via https://inference.local,
   # which the supervisor intercepts before policy is evaluated (see the header note).
 
-  # --- OpenClaw operational hosts (registry, API, docs) ---
+  # --- OpenClaw operational hosts: ClawHub plugin registry + npm (for installs) ---
+  # `openclaw plugins install clawhub:<pkg>` tunnels to BOTH clawhub.ai (the registry
+  # alias) and hub.openclaw.ai (the package CDN) — confirmed from the supervisor's OPA
+  # deny log. Both must be allowed. (The community image's default policy listed
+  # clawhub.nvidia.com / api.openclaw.ai, which do not resolve — placeholders.)
   openclaw:
     name: openclaw
     endpoints:
-      - { host: api.openclaw.ai, port: 443, access: full }
-      - { host: docs.openclaw.ai, port: 443, access: full }
-      - { host: clawhub.nvidia.com, port: 443, access: full }
+      - { host: clawhub.ai, port: 443, access: full }
+      - { host: hub.openclaw.ai, port: 443, access: full }
       - { host: registry.npmjs.org, port: 443, access: full }
     binaries:
       - { path: /usr/bin/node }
