@@ -11,7 +11,7 @@ openshell sandbox exec -n shifty -- sh -c \
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c \
-  'pkill -f "openclaw gateway run"; sleep 1; cd /sandbox && setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password openshell-wad26 --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & sleep 6; grep -E "listening on ws" /sandbox/gateway.log | tail -1'
+  'cd /sandbox && [ -f gateway.pid ] && kill "$(cat gateway.pid)" 2>/dev/null; sleep 2; setsid nohup openclaw gateway run --port 30789 --bind lan --auth password --password openshell-wad26 --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo $! > gateway.pid; sleep 8; grep -E "listening on ws" /sandbox/gateway.log | tail -1'
 ```
 
 The endpoint rides on the **same `:30789`** as the Control UI and WebSocket — the port you already exposed to the host with `openshell forward` in *Open the Agent UI*. So it's reachable on the host at `http://127.0.0.1:30789/v1/chat/completions`.
