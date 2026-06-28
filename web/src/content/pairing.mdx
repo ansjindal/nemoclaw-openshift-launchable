@@ -6,10 +6,10 @@ OpenClaw gives every browser a device identity (a keypair). A remote browser mus
 
 ## 1. See pending requests
 
-When your browser shows “Device pairing required”, list the requests. The lab shell's **`openclaw`** command is a helper that runs the OpenClaw CLI **inside your sandbox** (it execs through the gateway and points at the agent's gateway for you):
+When your browser shows “Device pairing required”, list the requests. **`sbox-openclaw`** is a lab-shell helper (there's no `openclaw` binary on this host) — it runs the OpenClaw CLI **inside your sandbox** via the gateway, i.e. it's shorthand for `openshell sandbox exec -n shifty -- openclaw …` (and adds the gateway URL + password for you):
 
 ```bash
-openclaw devices list
+sbox-openclaw devices list
 ```
 
 You'll see a **Pending** row with a `Request` id (a UUID) for your browser, plus any already-`Paired` devices. If you already approved this browser, there may be no pending row — that's fine, continue.
@@ -19,11 +19,11 @@ You'll see a **Pending** row with a `Request` id (a UUID) for your browser, plus
 Copy the pending request id and approve it:
 
 ```bash
-openclaw devices approve <REQUEST_ID>
+sbox-openclaw devices approve <REQUEST_ID>
 ```
 
 <Callout type="tip" title="Approve the most recent">
-In a hurry? <code>openclaw devices approve --latest</code> selects the newest pending request.
+In a hurry? <code>sbox-openclaw devices approve --latest</code> selects the newest pending request.
 </Callout>
 
 ## 3. Reconnect
@@ -31,14 +31,14 @@ In a hurry? <code>openclaw devices approve --latest</code> selects the newest pe
 Back in the browser, reload — you're in. List devices again and your browser shows under **Paired**:
 
 ```bash
-openclaw devices list
+sbox-openclaw devices list
 ```
 
 ## Managing devices
 
 ```bash
-openclaw devices remove <DEVICE_ID>   # revoke a device
-openclaw devices clear                # clear all paired devices
+sbox-openclaw devices remove <DEVICE_ID>   # revoke a device
+sbox-openclaw devices clear                # clear all paired devices
 ```
 
 <Callout type="rh" title="The real-world posture">

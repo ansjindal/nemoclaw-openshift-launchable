@@ -6,12 +6,14 @@ export PATH="$PATH:/usr/local/bin:/usr/bin"
 # Load .env (for OPENCLAW_GATEWAY_PASSWORD, etc.) if present.
 [ -f "$LAB_CWD/.env" ] && { set -a; . "$LAB_CWD/.env" 2>/dev/null; set +a; }
 
-# `openclaw ...` runs the OpenClaw CLI INSIDE your agent's sandbox via the OpenShell
-# gateway. Gateway subcommands (devices, health, logs, …) must reach the running gateway,
-# which lives on :30789 with password auth — so we add `--url`/`--password` automatically
-# (password = OPENCLAW_GATEWAY_PASSWORD, default openshell-wad26). Set OPENCLAW_AGENT to
-# target a different sandbox name (default: shifty).
-openclaw() {
+# `sbox-openclaw ...` is a LAB-SHELL HELPER (not the real binary — there's no openclaw on
+# this host). It runs the OpenClaw CLI INSIDE your agent's sandbox via the OpenShell gateway
+# (`openshell sandbox exec -n shifty -- openclaw ...`). For gateway subcommands (devices,
+# health, logs, …) it also adds `--url`/`--password` so they reach the in-sandbox gateway on
+# :30789 (password = OPENCLAW_GATEWAY_PASSWORD, default openshell-wad26). Set OPENCLAW_AGENT
+# to target a different sandbox name (default: shifty). Named distinctly so it's never
+# mistaken for running openclaw locally.
+sbox-openclaw() {
   local extra=()
   case "$1" in
     devices|health|approvals|cron|logs)
@@ -39,6 +41,6 @@ PS1='\[\e[1;32m\]oclaw-lab\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]$ '
 
 echo -e "\e[1;32m🦞 OpenClaw workshop lab shell\e[0m"
 echo -e "  \e[2mcluster:\e[0m  oc get pods -A"
-echo -e "  \e[2magent:\e[0m    openclaw devices list        (runs inside your sandbox 'shifty')"
+echo -e "  \e[2magent:\e[0m    \e[1;33msbox-openclaw\e[0m devices list   (lab helper → runs openclaw INSIDE sandbox 'shifty')"
 echo -e "  \e[2mgateway:\e[0m  openshell sandbox list       (create sandboxes via the OpenShell gateway)"
 echo

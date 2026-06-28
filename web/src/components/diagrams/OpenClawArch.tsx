@@ -11,7 +11,7 @@ export function OpenClawArch() {
         { id: "runtime", label: "Agent runtime", sub: "plans · calls tools", color: PURPLE, detail: <>The agent loop: it reasons, calls tools, and edits its workspace. It has no model of its own — it sends prompts to the configured inference provider.</> },
         { id: "config", label: "Config", sub: "~/.openclaw/openclaw.json", color: BLUE, detail: <>Declares the model <em>provider</em> (baseUrl + apiKey + model id, OpenAI-compatible) and defaults. Writable, so the Control UI’s onboarding can save it. You’ll edit this in the <strong>Add a Model</strong> lesson.</> },
         { id: "workspace", label: "Workspace", sub: "PVC · the agent’s memory", color: GREEN, detail: <>A persistent volume holding the agent’s files — including <code>IDENTITY.md</code>, <code>SOUL.md</code>, <code>AGENTS.md</code>, <code>TOOLS.md</code>. These <em>are</em> the agent’s memory and personality (see the <strong>Meet Shifty</strong> lesson).</> },
-        { id: "auth", label: "Auth & pairing", sub: "password + device approve", color: AMBER, detail: <>The gateway runs <code>--auth password</code>. A first-time browser also needs one-time <strong>device pairing</strong> — approved on the gateway host with <code>openclaw devices approve</code> (the <strong>Device Pairing</strong> lesson).</> },
+        { id: "auth", label: "Auth & pairing", sub: "password + device approve", color: AMBER, detail: <>The gateway runs <code>--auth password</code>. A first-time browser also needs one-time <strong>device pairing</strong> — approved from the lab shell with <code>sbox-openclaw devices approve</code> (the <strong>Device Pairing</strong> lesson).</> },
       ]}
     />
   );
