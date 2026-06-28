@@ -16,7 +16,7 @@ Two paths run through OpenShell: the **agent path** (how an agent comes alive an
 ### The guardrail path
 - **Policy Engine + Validator** — deny-by-default. Per binary, which hosts/methods/paths are allowed; a draft validator can propose additions for a human to approve.
 - **Network Guardrail** — kernel-level, per-binary egress (`git → github.com ✓`, `curl → anywhere ✗`). Stops exfil through unknown channels; instant, no restart on change.
-- **Privacy Router** — gateway-created sandboxes can call one URL, `inference.local`; the router strips sandbox-local creds and injects the real backend key + model. In this workshop the agent uses a simpler **direct provider config** (`openclaw.json`) pointed at a remote endpoint — same idea, fewer moving parts.
+- **Privacy Router** — gateway-created sandboxes call one URL, `inference.local`; the router injects the real backend key + model. **This workshop uses exactly this:** you register your endpoint + key as a gateway *provider* (Part IV) and the agent only ever talks to `inference.local`, so it never holds your key and the real host never appears in its egress policy.
 - **Model** — where inference runs. Here, a remote OpenAI-compatible endpoint (no local GPU); in a GPU cluster, an in-cluster vLLM.
 
 <Callout type="note" title="Why a runtime (not just a prompt)">
@@ -52,7 +52,7 @@ Single-node, CPU-only, NodePort instead of Envoy/LoadBalancer, remote inference 
 The bottom layer is community Kubernetes, not NVIDIA-specific: the `Sandbox` CRD (`agents.x-k8s.io`) and its controller come from **[kubernetes-sigs/agent-sandbox](https://github.com/kubernetes-sigs/agent-sandbox)**. OpenShell adds the gateway, supervisor, privacy router, and policy *on top*. That's why `oc get sandboxes -A` works with plain `oc` — they're standard Kubernetes objects.
 
 <Callout type="note" title="Version detail that matters">
-We pin agent-sandbox to <strong>v0.4.6</strong> (the last <code>v1alpha1</code>-only release). The gateway 0.0.70 verifies a sandbox pod is owned by a <code>v1alpha1</code> Sandbox; agent-sandbox v0.5.0 switched to <code>v1beta1</code> ownerReferences, which the gateway rejects — so gateway-driven sandboxes would crash-loop. Pinning v0.4.6 is what makes <code>openshell sandbox create</code> reach <code>Ready</code> on MicroShift.
+We pin agent-sandbox to <strong>v0.4.6</strong> (the last <code>v1alpha1</code>-only release). The gateway (0.0.71) verifies a sandbox pod is owned by a <code>v1alpha1</code> Sandbox; agent-sandbox v0.5.0 switched to <code>v1beta1</code> ownerReferences, which the gateway rejects — so gateway-driven sandboxes would crash-loop. Pinning v0.4.6 is what makes <code>openshell sandbox create</code> reach <code>Ready</code> on MicroShift.
 </Callout>
 
 ## How you reach the gateway
@@ -93,7 +93,17 @@ And list the agents running on it:
 openshell sandbox list
 ```
 
-If you haven't built an agent yet, this is **empty** — you create your first one in **Part IV**. (If you do see one like `shifty`, it's simply been created already.) Part III (next) goes deeper on the control plane and the policy model, with a throwaway sandbox to play on, so you understand every piece before you build for real.
+If you haven't built an agent yet, this is **empty** — you create your first one in **Part IV**. (If you do see one like `shifty`, it's simply been created already.)
+
+And once a sandbox *does* exist, you don't `kubectl exec` into it — you go **through the gateway** with `openshell sandbox exec`, which enforces the sandbox's policy and records every command in the audit trail. It runs anything inside the box, including the agent's own `openclaw` CLI (it ships in the sandbox image):
+
+```bash-ref
+# (reference — needs a sandbox like shifty first, which you build in Part IV)
+openshell sandbox exec -n shifty -- echo "hello from inside the sandbox"
+openshell sandbox exec -n shifty -- openclaw --version
+```
+
+Part III (next) goes deeper on the control plane and the policy model, with a throwaway sandbox to play on, so you understand every piece before you build for real.
 
 Because the gateway is just gRPC, *anything* that speaks it can drive the fleet — the `openshell` CLI you just used, the companion `openshell-ui` web console, or live panels wired straight into this workshop site from the gateway API.
 
@@ -102,5 +112,5 @@ You'll hear "gateway" twice: the <strong>OpenShell gateway</strong> (control pla
 </Callout>
 
 <Callout type="rh" title="What this launchable exercises">
-You'll drive the <strong>gateway</strong> for real: <code>openshell sandbox create</code> mints an identity, writes a <code>Sandbox</code> CR, the controller reconciles a Pod, and the <strong>supervisor</strong> sideloads + connects back — all the way to <code>Ready</code>. Your agent uses a direct OpenClaw provider config; gateway-created sandboxes can alternatively use the OpenShell inference router. The next lessons run these paths end to end.
+You'll drive the <strong>gateway</strong> for real: <code>openshell sandbox create</code> mints an identity, writes a <code>Sandbox</code> CR, the controller reconciles a Pod, and the <strong>supervisor</strong> sideloads + connects back — all the way to <code>Ready</code>. Your agent reaches its model through the OpenShell <strong>inference router</strong> (<code>inference.local</code>), so it never holds your key. The next lessons run these paths end to end.
 </Callout>

@@ -46,9 +46,15 @@ You'll see `minted sandbox JWT`, `Creating sandbox in Kubernetes`, `issued gatew
 
 ```bash
 openshell logs lab --source sandbox --level debug
-# live tail (Ctrl-C to stop):
+```
+
+Now stream it live — this one **keeps running** and follows new events:
+
+```bash
 openshell logs lab --tail
 ```
+
+When you're done watching, press <kbd>Ctrl-C</kbd> in the shell to stop the tail and get your prompt back (it blocks until you do).
 
 <Callout type="note" title="This is the SIEM feed">
 Each entry is an OCSF-style security event. In production you stream these to your SIEM — every allow/deny, every policy change, every exec, attributable to a sandbox.
@@ -59,9 +65,14 @@ Each entry is an OCSF-style security event. In production you stream these to yo
 See the effective policy, its history, and (the fun part) **prove** a property of it:
 
 ```bash
-openshell policy get lab        # effective policy
-openshell policy list lab       # revision history
+openshell policy get lab        # the policy currently in force
 ```
+
+```bash
+openshell policy list lab       # revision history, with a status per revision
+```
+
+Each policy change is a **revision**. In the history, a revision's **Status** is `Pending` until the sandbox's supervisor confirms it has loaded that revision — then it flips to `Effective`/`Active`. `policy get` always shows the policy *currently compiled and in force*. On a brand-new sandbox (or one whose initial command already exited, like our `-- true` box) you'll often see the first revision sit at `Pending` — the gateway has recorded it, but there's no live agent process that has re-read it yet. Create a real agent (Part IV) and you'll watch revisions go `Effective` as the running supervisor applies them.
 
 `openshell policy` also does `set` / `update` (hot-reload egress on a running sandbox — no restart) and `prove` (formally check "can this agent ever reach host X?" — or get a counterexample). That's the audit→enforce loop from the policy lesson, live.
 
