@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { RefreshCw, Server, Box, ScrollText, Shield, Cpu, KeyRound } from "lucide-react";
+import { RefreshCw, Server, Box, ScrollText, Shield, Cpu, KeyRound, UserPlus, Check, X } from "lucide-react";
 
 type Sandbox = { name: string; phase: string; ready: boolean; restarts: number; created: string | null };
 type Provider = { name: string; type: string; credentialKeys: string[]; configKeys: string[] };
 type Inference = { configured: boolean; provider: string | null; model: string | null; version: string | null; providers: Provider[] };
-type Data = { ok: boolean; error?: string; gateway?: { ready: boolean; version: string | null }; sandboxes?: Sandbox[]; inference?: Inference | null };
+type Pending = { requestId: string; deviceId: string; roles: string[]; scopes: string[]; isRepair: boolean; ts: number | null };
+type Data = { ok: boolean; error?: string; gateway?: { ready: boolean; version: string | null }; sandboxes?: Sandbox[]; inference?: Inference | null; pending?: Pending[] };
 
 function age(iso: string | null): string {
   if (!iso) return "—";
@@ -26,6 +27,7 @@ export function LiveOpenShell() {
   const [source, setSource] = useState<"all" | "gateway" | "sandbox">("all");
   const [detail, setDetail] = useState<string>("");
   const [detailLoading, setDetailLoading] = useState(false);
+  const [acting, setActing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,6 +55,17 @@ export function LiveOpenShell() {
       setDetailLoading(false);
     }
   }, []);
+
+  const act = useCallback(async (requestId: string, action: "approve" | "reject") => {
+    setActing(requestId);
+    try {
+      await fetch("/api/openshell", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, requestId }),
+      });
+      await load();
+    } catch { /* surfaced on next poll */ } finally { setActing(null); }
+  }, [load]);
 
   useEffect(() => {
     load();
@@ -91,6 +104,40 @@ export function LiveOpenShell() {
         )}
         <span className="ml-auto font-mono text-[10px] text-[var(--color-fg-mut)]">ns: openshell</span>
       </div>
+
+      {/* pending device-pairing approvals — admin can approve/deny right here */}
+      {data?.ok && (data.pending?.length ?? 0) > 0 && (
+        <div className="mb-3 rounded-lg border border-[#e0a800] bg-[var(--color-bg-2)] px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <UserPlus size={15} className="text-[#e0a800]" />
+            <span className="text-[13px] font-semibold text-[var(--color-fg)]">Pending device approvals</span>
+            <span className="ml-auto rounded-full bg-[#e0a800] px-1.5 text-[10px] font-bold text-[#06080b]">{data.pending!.length}</span>
+          </div>
+          <div className="mt-2 space-y-1.5">
+            {data.pending!.map((p) => (
+              <div key={p.requestId} className="flex flex-wrap items-center gap-2 rounded border border-[var(--color-line-2)] bg-[var(--color-bg)] px-2 py-1.5">
+                <span className="font-mono text-[11px] text-[var(--color-fg)]">{(p.deviceId || p.requestId).slice(0, 12)}…</span>
+                <span className="font-mono text-[10px] text-[var(--color-fg-mut)]">{(p.scopes.length ? p.scopes : p.roles).join(", ")}</span>
+                {p.isRepair && <span className="rounded bg-[var(--color-line-2)] px-1 text-[9px] text-[var(--color-fg-mut)]">scope upgrade</span>}
+                <span className="text-[10px] text-[var(--color-fg-mut)]">{age(p.ts ? new Date(p.ts).toISOString() : null)}</span>
+                <div className="ml-auto flex gap-1.5">
+                  <button disabled={acting === p.requestId} onClick={() => act(p.requestId, "approve")}
+                    className="inline-flex items-center gap-1 rounded border border-[var(--color-nv-dim)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-nv-bright)] transition hover:bg-[var(--color-panel)] disabled:opacity-50">
+                    <Check size={11} /> Approve
+                  </button>
+                  <button disabled={acting === p.requestId} onClick={() => act(p.requestId, "reject")}
+                    className="inline-flex items-center gap-1 rounded border border-[#ee5555] px-2 py-0.5 text-[11px] font-semibold text-[#ee7777] transition hover:bg-[var(--color-panel)] disabled:opacity-50">
+                    <X size={11} /> Deny
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[10px] text-[var(--color-fg-mut)]">
+            A device asked to pair with your agent&apos;s gateway. <strong>Approve</strong> to let it in or <strong>Deny</strong> to reject — runs <code>openclaw devices approve|reject</code> through the gateway.
+          </p>
+        </div>
+      )}
 
       {/* inference route + registered providers (from openshell inference get / provider list) */}
       {data?.ok && data.inference && (

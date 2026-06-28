@@ -151,6 +151,24 @@ log "Starting the OpenClaw gateway on :${UI_PORT} (auth=password)"
 ox sh -c "cd /sandbox && setsid nohup openclaw gateway run --port ${UI_PORT} --bind lan --auth password --password '${GW_PASSWORD}' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo \$! > /sandbox/gateway.pid; sleep 7; tail -5 /sandbox/gateway.log" \
   || warn "Could not start the OpenClaw gateway."
 
+# --- bootstrap an admin operator device --------------------------------------------
+# With --auth password the first CLI/device pairs as role `operator` but with only the
+# `operator.pairing` scope, which can REQUEST pairing yet cannot APPROVE another device's
+# request. On a fresh gateway no device has admin, so the first browser pairing hits a
+# "who approves the approver" deadlock. Fix: pair the local operator now, grant it the
+# admin scopes directly in the gateway's device table (devices/paired.json), and restart
+# so the gateway loads them. Afterwards the operator can approve device pairings — from
+# the CLI, the OpenClaw Control UI, or the workshop's Live OpenShell approvals panel.
+log "Bootstrapping an admin operator device (so device-pairing approvals work out of the box)"
+ox sh -c "openclaw devices list --url ws://127.0.0.1:${UI_PORT} --password '${GW_PASSWORD}' >/dev/null 2>&1 || true"
+sleep 2
+BOOTSTRAP_JS='const fs=require("fs");const dir="/sandbox/.openclaw/devices";const p=dir+"/paired.json";if(!fs.existsSync(p)){console.log("no paired devices yet");process.exit(0);}const d=JSON.parse(fs.readFileSync(p,"utf8"));const want=["operator.pairing","operator.admin","operator.approvals","operator.read","operator.write"];for(const k in d){d[k].scopes=want;d[k].approvedScopes=want;if(d[k].tokens&&d[k].tokens.operator){d[k].tokens.operator.scopes=want;}}fs.writeFileSync(p,JSON.stringify(d));try{fs.writeFileSync(dir+"/pending.json","{}");}catch(e){}console.log("admin-bootstrapped "+Object.keys(d).length+" device(s)");'
+BJB64="$(printf '%s' "$BOOTSTRAP_JS" | base64 -w0)"
+ox sh -c "echo $BJB64 | base64 -d > /sandbox/bootstrap-admin.js && node /sandbox/bootstrap-admin.js" \
+  || warn "Admin bootstrap step failed — device approvals may need a manual grant."
+ox sh -c "cd /sandbox && [ -f gateway.pid ] && kill \"\$(cat gateway.pid)\" 2>/dev/null; sleep 2; setsid nohup openclaw gateway run --port ${UI_PORT} --bind lan --auth password --password '${GW_PASSWORD}' --allow-unconfigured >/sandbox/gateway.log 2>&1 < /dev/null & echo \$! > /sandbox/gateway.pid; sleep 6; grep -E 'listening on ws' /sandbox/gateway.log | tail -1" \
+  || warn "Gateway restart after admin bootstrap failed."
+
 # --- expose the Control UI on the host via `openshell forward` (persistent systemd unit) ---
 log "Installing openclaw-forward.service (openshell forward host:${UI_PORT} -> sandbox)"
 RUN_USER="$(id -un)"; RUN_HOME="$HOME"
