@@ -53,6 +53,23 @@ openshell gateway add "$GW_URL" --local --name cluster >/dev/null 2>&1 || true
 openshell gateway select cluster >/dev/null 2>&1 || true
 openshell status >/dev/null 2>&1 || warn "Gateway not answering at ${GW_URL} — is phase 30/50 done?"
 
+# --- private skill registry (Verdaccio) — the agent's single skill+dep source ---
+# Deploy it early so it's Ready by the time we seed the sandbox's npm config. The sandbox
+# egress policy (policies/openclaw-sandbox.yaml) allows ONLY this Service; Verdaccio uplinks
+# npmjs and caches transitive deps, so the sealed agent never reaches the public internet.
+REGISTRY_MANIFEST="$REPO_ROOT/manifests/openclaw/registry.yaml"
+REGISTRY_HOST="registry.${NS}.svc.cluster.local:4873"
+if [[ -f "$REGISTRY_MANIFEST" ]]; then
+  log "Deploying the private skill registry (Verdaccio) from $REGISTRY_MANIFEST"
+  oc apply -f "$REGISTRY_MANIFEST" >/tmp/registry-apply.log 2>&1 \
+    || warn "registry apply failed — see /tmp/registry-apply.log"
+  oc -n "$NS" rollout status deploy/registry --timeout=150s >/dev/null 2>&1 \
+    && log "Skill registry Ready at ${REGISTRY_HOST}" \
+    || warn "registry not Ready yet — skill installs from it may fail until it settles."
+else
+  warn "No registry manifest at $REGISTRY_MANIFEST — the agent will have no in-cluster skill source."
+fi
+
 # --- configure the privacy router: gateway-side provider + inference route ---
 # The real endpoint + key are held by the gateway, NOT the agent. `inference.local` then
 # resolves through this provider. (Verified end-to-end on 0.0.71: this does NOT disturb
@@ -98,6 +115,36 @@ for i in $(seq 1 48); do
   fi
 done
 [[ "$ready" == true ]] || { warn "Sandbox not ready — create log:"; tail -8 /tmp/openclaw-create.log; }
+
+# --- point the sandbox's npm at the private registry + provision a publish user ---
+# Skills are npm packages, so this is plain npm config: the @workshop scope AND the default
+# registry resolve to Verdaccio (transitive deps uplink through it too). Anonymous read,
+# authenticated publish. The user is created via the registry's PUT API from INSIDE the
+# sandbox (the host cannot reach a ClusterIP; the sandbox can). 201 = created, 409 = exists.
+if [[ "$ready" == true ]]; then
+  REG_USER="${OPENCLAW_REGISTRY_USER:-workshop}"
+  REG_PASS="${OPENCLAW_REGISTRY_PASSWORD:-wad26-skills}"
+  log "Provisioning registry user '${REG_USER}' + pointing sandbox npm at ${REGISTRY_HOST}"
+  cat > /tmp/mkuser.js <<JS
+const http=require("http");
+const b=JSON.stringify({name:"${REG_USER}",password:"${REG_PASS}"});
+const r=http.request("http://${REGISTRY_HOST}/-/user/org.couchdb.user:${REG_USER}",{method:"PUT",headers:{"content-type":"application/json","content-length":Buffer.byteLength(b)}},res=>{let d="";res.on("data",c=>d+=c);res.on("end",()=>console.log("registry user status",res.statusCode));});
+r.on("error",e=>console.log("registry user ERR",e.message));r.write(b);r.end();
+JS
+  MKUSER_B64="$(base64 < /tmp/mkuser.js | tr -d '\n')"
+  ox sh -c "echo $MKUSER_B64 | base64 -d > /sandbox/mkuser.js && node /sandbox/mkuser.js" 2>&1 \
+    | grep -i 'registry user' || warn "registry user provisioning unclear (see above)"
+  # /sandbox/.npmrc: default + @workshop scope -> registry, plus basic auth for publish.
+  AUTH_B64="$(printf '%s:%s' "$REG_USER" "$REG_PASS" | base64 | tr -d '\n')"
+  cat > /tmp/agent-npmrc <<NPMRC
+registry=http://${REGISTRY_HOST}/
+@workshop:registry=http://${REGISTRY_HOST}/
+//${REGISTRY_HOST}/:_auth=${AUTH_B64}
+NPMRC
+  NPMRC_B64="$(base64 < /tmp/agent-npmrc | tr -d '\n')"
+  ox sh -c "echo $NPMRC_B64 | base64 -d > /sandbox/.npmrc" 2>&1 || warn "could not seed /sandbox/.npmrc"
+  log "Sandbox npm -> ${REGISTRY_HOST} (@workshop scope + publish auth seeded in /sandbox/.npmrc)"
+fi
 
 # --- build OpenClaw config (inference + gateway auth) and stage it into /sandbox ---
 # HOME=/sandbox; config at ~/.openclaw/openclaw.json. The agent is Landlock-confined to

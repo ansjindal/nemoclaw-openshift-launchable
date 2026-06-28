@@ -1,70 +1,83 @@
 {
-  "network_policies": [
-    {
-      "name": "inference",
-      "endpoints": [
-        { "host": "integrate.api.nvidia.com", "port": 443, "protocol": "rest", "enforcement": "enforce" }
-      ],
-      "binaries": ["/usr/bin/node", "/usr/local/bin/node", "/usr/bin/python*", "/usr/local/bin/python*"],
-      "rules": [{ "method": "POST", "path": "/v1/**" }]
-    },
-    {
-      "name": "clawhub",
-      "endpoints": [
-        { "host": "clawhub.nvidia.com", "port": 443, "protocol": "rest", "enforcement": "enforce" }
-      ],
-      "binaries": ["/usr/bin/node", "/usr/local/bin/node"],
-      "rules": [{ "method": "GET", "path": "/**" }]
-    },
-    {
-      "name": "openclaw",
-      "endpoints": [
-        { "host": "api.openclaw.ai", "port": 443, "protocol": "rest", "enforcement": "enforce" },
-        { "host": "docs.openclaw.ai", "port": 443, "protocol": "rest", "enforcement": "enforce" }
-      ],
-      "binaries": ["/usr/bin/node", "/usr/local/bin/node"],
-      "rules": [{ "method": "GET", "path": "/**" }]
-    },
-    {
-      "name": "npm",
-      "endpoints": [
-        { "host": "registry.npmjs.org", "port": 443, "protocol": "rest", "access": "full" }
-      ],
-      "binaries": ["/usr/bin/npm", "/usr/local/bin/npm", "/usr/bin/node", "/usr/local/bin/node"]
-    },
-    {
-      "name": "pypi",
-      "endpoints": [
-        { "host": "pypi.org", "port": 443, "protocol": "rest", "access": "full" },
-        { "host": "files.pythonhosted.org", "port": 443, "protocol": "rest", "access": "full" }
-      ],
-      "binaries": ["/usr/bin/pip*", "/usr/local/bin/pip*", "/usr/bin/python*", "/usr/local/bin/python*"]
-    },
-    {
-      "name": "huggingface",
-      "endpoints": [
-        { "host": "huggingface.co", "port": 443, "protocol": "rest", "enforcement": "enforce" }
-      ],
-      "binaries": ["/usr/bin/python*", "/usr/local/bin/python*"],
-      "rules": [{ "method": "GET", "path": "/**" }]
-    }
-  ],
-  "filesystem": {
-    "read_write": ["/sandbox", "/tmp"],
-    "read_only": ["/usr", "/etc", "/lib", "/bin"]
+  "version": 1,
+  "filesystem_policy": {
+    "include_workdir": true,
+    "read_only": [
+      "/usr",
+      "/lib",
+      "/proc",
+      "/dev/urandom",
+      "/app",
+      "/etc",
+      "/var/log"
+    ],
+    "read_write": [
+      "/sandbox",
+      "/tmp",
+      "/dev/null"
+    ]
+  },
+  "landlock": {
+    "compatibility": "best_effort"
   },
   "process": {
-    "allowed_binaries": [
-      "/usr/bin/node",
-      "/usr/local/bin/node",
-      "/usr/bin/npm",
-      "/usr/local/bin/npm",
-      "/usr/bin/python*",
-      "/usr/local/bin/python*",
-      "/usr/bin/pip*",
-      "/usr/local/bin/pip*",
-      "/bin/sh",
-      "/bin/bash"
-    ]
+    "run_as_user": "sandbox",
+    "run_as_group": "sandbox"
+  },
+  "network_policies": {
+    "in-cluster-registry": {
+      "name": "in-cluster-registry",
+      "endpoints": [
+        {
+          "host": "registry.openshell.svc.cluster.local",
+          "port": 4873,
+          "access": "full",
+          "protocol": "rest",
+          "allow_encoded_slash": true
+        }
+      ],
+      "binaries": [
+        {
+          "path": "/usr/bin/node"
+        },
+        {
+          "path": "/usr/local/bin/node"
+        },
+        {
+          "path": "/usr/bin/npm"
+        },
+        {
+          "path": "/usr/local/bin/npm"
+        }
+      ]
+    },
+    "websearch": {
+      "name": "websearch",
+      "endpoints": [
+        {
+          "host": "duckduckgo.com",
+          "port": 443,
+          "access": "full"
+        },
+        {
+          "host": "html.duckduckgo.com",
+          "port": 443,
+          "access": "full"
+        },
+        {
+          "host": "lite.duckduckgo.com",
+          "port": 443,
+          "access": "full"
+        }
+      ],
+      "binaries": [
+        {
+          "path": "/usr/bin/node"
+        },
+        {
+          "path": "/usr/local/bin/node"
+        }
+      ]
+    }
   }
 }

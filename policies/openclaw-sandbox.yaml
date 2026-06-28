@@ -44,23 +44,27 @@ network_policies:
   # Inference is NOT listed here — the agent reaches the model via https://inference.local,
   # which the supervisor intercepts before policy is evaluated (see the header note).
 
-  # --- OpenClaw operational hosts: ClawHub plugin registry + npm (for installs) ---
-  # `openclaw plugins install clawhub:<pkg>` tunnels to BOTH clawhub.ai (the registry
-  # alias) and hub.openclaw.ai (the package CDN) — confirmed from the supervisor's OPA
-  # deny log. Both must be allowed. (The community image's default policy listed
-  # clawhub.nvidia.com / api.openclaw.ai, which do not resolve — placeholders.)
-  openclaw:
-    name: openclaw
+  # --- Skill supply chain: ONE governed source ---
+  # The agent's ONLY skill+dep egress is our private in-cluster npm registry (Verdaccio,
+  # `manifests/openclaw/registry.yaml`), reachable over the cluster network at
+  # registry.openshell.svc.cluster.local:4873. Skills enter that registry two ways — authored
+  # in-sandbox and published, or vetted-and-mirrored from ClawHub by a curator — and the agent
+  # installs only from it. Verdaccio uplinks npmjs and caches transitive deps, so the agent
+  # never talks to registry.npmjs.org directly either: a single, auditable chokepoint.
+  #
+  # ClawHub (clawhub.ai / hub.openclaw.ai) is deliberately ABSENT: the agent cannot pull
+  # skills straight from the internet. The skills lesson opens a temporary ClawHub door with
+  # `openshell policy update --add-endpoint` to demo edge-vetting, then removes it — this file
+  # is the durable, locked posture.
+  #
+  # npm fetches SCOPED packages as /@scope%2fname — the encoded '/' (%2F). The proxy's path
+  # parser rejects %2F unless the endpoint is protocol: rest + allow_encoded_slash: true
+  # (NOT settable via the CLI --add-endpoint; it must live here). Scoped names like
+  # @workshop/<skill> need it, so the registry endpoint sets it.
+  in-cluster-registry:
+    name: in-cluster-registry
     endpoints:
-      - { host: clawhub.ai, port: 443, access: full }
-      - { host: hub.openclaw.ai, port: 443, access: full }
-      # npm fetches SCOPED packages as /@scope%2fname — the encoded '/' (%2F). The proxy's
-      # credential-relay path parser rejects %2F unless the endpoint is protocol: rest with
-      # allow_encoded_slash: true. Without this, installing any plugin with a scoped dep
-      # (e.g. openclaw-hello-world -> @sinclair/typebox) hangs at "Installing plugin
-      # dependencies". (allow_encoded_slash is NOT settable via the CLI --add-endpoint;
-      # it must be set here in the policy YAML.)
-      - { host: registry.npmjs.org, port: 443, access: full, protocol: rest, allow_encoded_slash: true }
+      - { host: registry.openshell.svc.cluster.local, port: 4873, access: full, protocol: rest, allow_encoded_slash: true }
     binaries:
       - { path: /usr/bin/node }
       - { path: /usr/local/bin/node }
