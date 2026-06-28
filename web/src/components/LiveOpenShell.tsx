@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { RefreshCw, Server, Box, ScrollText, Shield } from "lucide-react";
+import { RefreshCw, Server, Box, ScrollText, Shield, Cpu, KeyRound } from "lucide-react";
 
 type Sandbox = { name: string; phase: string; ready: boolean; restarts: number; created: string | null };
-type Data = { ok: boolean; error?: string; gateway?: { ready: boolean; version: string | null }; sandboxes?: Sandbox[] };
+type Provider = { name: string; type: string; credentialKeys: string[]; configKeys: string[] };
+type Inference = { configured: boolean; provider: string | null; model: string | null; version: string | null; providers: Provider[] };
+type Data = { ok: boolean; error?: string; gateway?: { ready: boolean; version: string | null }; sandboxes?: Sandbox[]; inference?: Inference | null };
 
 function age(iso: string | null): string {
   if (!iso) return "—";
@@ -89,6 +91,40 @@ export function LiveOpenShell() {
         )}
         <span className="ml-auto font-mono text-[10px] text-[var(--color-fg-mut)]">ns: openshell</span>
       </div>
+
+      {/* inference route + registered providers (from openshell inference get / provider list) */}
+      {data?.ok && data.inference && (
+        <div className="mb-3 rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Cpu size={15} className="text-[var(--color-fg-mut)]" />
+            <span className="text-[13px] font-semibold text-[var(--color-fg)]">Inference route</span>
+            {data.inference.configured ? (
+              <span className="inline-flex items-center gap-1.5 text-[12px] text-[var(--color-nv-bright)]">
+                <span style={{ width: 7, height: 7, borderRadius: 7, background: "#76b900", display: "inline-block" }} />
+                {data.inference.provider} · <span className="font-mono">{data.inference.model}</span>{data.inference.version ? ` · v${data.inference.version}` : ""}
+              </span>
+            ) : (
+              <span className="text-[12px] text-[var(--color-fg-mut)]">not configured — set it in <em>Set Your Inference Endpoint</em></span>
+            )}
+            <span className="ml-auto font-mono text-[10px] text-[var(--color-fg-mut)]">via inference.local</span>
+          </div>
+          {data.inference.providers.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {data.inference.providers.map((p) => (
+                <span key={p.name} title={`credentials: ${p.credentialKeys.join(", ") || "—"}`}
+                  className="inline-flex items-center gap-1 rounded border border-[var(--color-line-2)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-fg-dim)]">
+                  {p.name === data.inference!.provider && <span style={{ width: 5, height: 5, borderRadius: 5, background: "#76b900", display: "inline-block" }} />}
+                  {p.name} <span className="text-[var(--color-fg-mut)]">({p.type})</span>
+                  {p.credentialKeys.length > 0 && <span className="inline-flex items-center gap-0.5 text-[var(--color-fg-mut)]"><KeyRound size={9} />{p.credentialKeys.length}</span>}
+                </span>
+              ))}
+            </div>
+          )}
+          <p className="mt-1.5 text-[10px] text-[var(--color-fg-mut)]">
+            The provider holds the endpoint + key (<strong>values never shown</strong> — only key names); agents reach the model at <code>inference.local</code>.
+          </p>
+        </div>
+      )}
 
       {data && !data.ok ? (
         <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-bg-2)] p-3 text-[12px] text-[var(--color-fg-mut)]">

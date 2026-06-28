@@ -74,20 +74,13 @@ process:
   run_as_group: sandbox
 
 network_policies:                        # a MAP of named egress rules — deny-by-default
-  inference:                             # rule #1 — the model endpoint
-    name: inference
-    endpoints:
-      - { host: <your-inference-host>, port: 443 }
-    binaries:
-      - { path: /usr/bin/node }          # ONLY node may use this rule
-  openclaw:                              # rule #2 — OpenClaw's own hosts
+  openclaw:                              # OpenClaw's own hosts (registry, API, docs)
     name: openclaw
     endpoints:
       - { host: api.openclaw.ai, port: 443 }
-      - { host: clawhub.nvidia.com, port: 443 }
       - { host: registry.npmjs.org, port: 443 }
     binaries:
-      - { path: /usr/bin/node }
+      - { path: /usr/bin/node }          # ONLY node/npm may use this rule
       - { path: /usr/bin/npm }
 ```
 
@@ -97,11 +90,13 @@ Now read it block by block:
 - **`filesystem_policy`** — the agent's view of the disk. `read_only` covers the system dirs (so it can't tamper with binaries or configs); `read_write` is **only** its home (`/sandbox`), `/tmp`, and `/dev/null`. Anything not listed — `/workspace`, the host filesystem — simply isn't there for the agent.
 - **`landlock`** — those filesystem rules aren't advisory. They're enforced by **Landlock**, a Linux-kernel security module, so even a compromised agent can't step outside them.
 - **`process`** — the agent runs as the unprivileged `sandbox` user, never root (backed by seccomp-BPF + privilege drop).
-- **`network_policies`** — the heart of it: a **map** of named rules, deny-by-default. Each rule pairs **endpoints** (the host + port the agent may reach) with **binaries** (which executables may use that egress). Two rules here:
-  - **`inference`** — only the `node` binary may open `:443` to your model endpoint. That's how the agent thinks — and the *only* host it can reach to do so.
-  - **`openclaw`** — `node` + `npm` may reach OpenClaw's API + the package registries (so the agent can fetch skills/packages), and nothing else.
+- **`network_policies`** — the heart of it: a **map** of named rules, deny-by-default. Each rule pairs **endpoints** (the host + port the agent may reach) with **binaries** (which executables may use that egress). Here there's just one — `openclaw` — letting `node`/`npm` reach OpenClaw's API + the package registries (so the agent can fetch skills/packages), and nothing else.
 
-Read any rule as one sentence: *"`/usr/bin/node` may open `:443` to `api.openclaw.ai` — `curl` may not, and nobody may reach anywhere else."* That **per-binary, per-host** egress is what stops a prompt-injected agent from exfiltrating data through an unexpected channel — a deny-all firewall with two tiny doors, each labelled with who may walk through it.
+Read it as one sentence: *"`/usr/bin/node` may open `:443` to `api.openclaw.ai` — `curl` may not, and nobody may reach anywhere else."* That **per-binary, per-host** egress is what stops a prompt-injected agent from exfiltrating data through an unexpected channel — a deny-all firewall with tiny labelled doors.
+
+<Callout type="note" title="Where's the model endpoint?">
+Notice the policy has <strong>no rule for inference</strong>. The agent reaches its model at the virtual host <code>https://inference.local</code>, which the supervisor intercepts <em>before</em> policy is evaluated and routes to the gateway (next section). So the real inference host never appears here — and a direct call to it is denied like anything else (<code>CONNECT tunnel failed, response 403</code>). The model works; the endpoint is invisible to the agent.
+</Callout>
 
 You'll see this exact policy **enforced live** in the next lesson (on a throwaway sandbox) and again when you build your agent in Part IV — `openshell policy get <name>` prints the *effective* policy. The gateway compiles this file into kernel-level (Landlock/seccomp) and proxy-level (OPA egress) rules.
 
@@ -112,5 +107,22 @@ For a gateway-created sandbox, start in <strong>audit</strong> mode (violations 
 <Callout type="note" title="Who reconciles the sandbox?">
 The agent-sandbox <strong>controller</strong> (installed with OpenShell in phase 30) turns the <code>Sandbox</code> CR into a real pod, under the namespace's RBAC + Security Context Constraints. OpenShell is the broader control plane / supervisor for sandboxes.
 </Callout>
+
+## Inference routing — the privacy router
+
+The gateway is also where inference is configured, as two control-plane objects you'll use in Part IV:
+
+- A **provider** — a named bundle the gateway stores: an API type (`openai`, `anthropic`, …), the **endpoint** (config), and the **key** (a credential). The key lives here, gateway-side — never in a sandbox.
+- The **inference route** — the gateway saying "use *this provider* + *this model* for inference." One route is active at a time.
+
+```bash
+openshell provider create --name default --type openai \
+  --credential OPENAI_API_KEY=…  --config OPENAI_BASE_URL=…   # key held by the gateway
+openshell inference set --provider default --model …          # bind it as the active route
+openshell inference get                                       # confirm
+openshell provider list                                       # never prints key values
+```
+
+An agent then sends its thinking to **`https://inference.local`**. The supervisor intercepts that virtual host *before* the egress policy runs and hands it to the gateway, which injects the real key and calls the provider upstream. Two consequences, both good: the agent **never holds your key**, and your real inference host **never needs a `network_policies` entry** (which is why the policy above has none). That's the OpenShell privacy router — you'll set it up, then watch a sandbox use it, in Part IV.
 
 Next: spin up a throwaway sandbox and drive every part of this — status, logs, policy, inference, forward — hands-on.

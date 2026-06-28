@@ -64,7 +64,7 @@ openshell policy list lab       # revision history
 openshell inference get
 ```
 
-The gateway's **privacy router**: set one backend here and gateway-created sandboxes can reach it through `inference.local` — those agents never hold the upstream key. `openshell inference set` points it at a provider+model. (Your `shifty` agent uses a direct OpenClaw provider config in `openclaw.json` instead — both approaches work.)
+The gateway's **privacy router**: register a backend as a *provider* (endpoint + key, held gateway-side), then `openshell inference set` points the route at a provider+model. Gateway-created sandboxes reach it through `inference.local` — so those agents never hold the upstream key, and the real host never appears in their egress policy. That's exactly how you'll wire up your own agent in Part IV.
 
 ## 6. Expose a port — `forward` / `service`
 

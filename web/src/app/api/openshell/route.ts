@@ -23,6 +23,33 @@ async function openshell(args: string[]) {
   const { stdout } = await run("openshell", args, { env, timeout: 10000, maxBuffer: 4 << 20 });
   return stdout;
 }
+async function openshellJson(args: string[]) {
+  const { stdout } = await run("openshell", args, { env, timeout: 10000, maxBuffer: 4 << 20 });
+  return JSON.parse(stdout);
+}
+
+// The gateway's inference route (active provider + model) and the registered providers.
+// `provider list -o json` exposes only the credential/config KEY NAMES — never the secret
+// values — so this is safe to surface read-only in the UI.
+type Provider = { name: string; type: string; credential_keys?: string[]; config_keys?: string[] };
+async function getInference() {
+  const [routeText, providers] = await Promise.all([
+    openshell(["inference", "get"]).catch(() => ""),
+    openshellJson(["provider", "list", "-o", "json"]).catch(() => [] as Provider[]),
+  ]);
+  const gw = routeText.replace(/\x1b\[[0-9;]*m/g, "").split(/System inference:/i)[0];
+  const provider = /Provider:\s*(\S+)/.exec(gw)?.[1] ?? null;
+  const model = /Model:\s*(\S+)/.exec(gw)?.[1] ?? null;
+  const version = /Version:\s*(\S+)/.exec(gw)?.[1] ?? null;
+  return {
+    configured: !!(provider && model),
+    provider, model, version,
+    providers: (providers as Provider[]).map((p) => ({
+      name: p.name, type: p.type,
+      credentialKeys: p.credential_keys ?? [], configKeys: p.config_keys ?? [],
+    })),
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -48,10 +75,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, name: policyFor, text: out });
     }
 
-    // --- default: gateway health + the sandbox fleet ---
-    const [sb, pods] = await Promise.all([
+    // --- default: gateway health + the sandbox fleet + the inference route ---
+    const [sb, pods, inference] = await Promise.all([
       oc(["get", "sandboxes.agents.x-k8s.io", "-o", "json"]).catch(() => ({ items: [] })),
       oc(["get", "pods", "-o", "json"]).catch(() => ({ items: [] })),
+      getInference().catch(() => null),
     ]);
     type Pod = { metadata: { name: string }; status?: { phase?: string; containerStatuses?: { ready?: boolean; restartCount?: number }[] } };
     const podByName = new Map<string, Pod>();
@@ -76,7 +104,7 @@ export async function GET(req: Request) {
       const m = /gateway:(\S+)/.exec(img);
       gateway.version = m ? m[1] : null;
     } catch {}
-    return NextResponse.json({ ok: true, gateway, sandboxes, at: new Date().toISOString() });
+    return NextResponse.json({ ok: true, gateway, sandboxes, inference, at: new Date().toISOString() });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) });
   }
