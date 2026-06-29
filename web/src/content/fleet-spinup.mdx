@@ -24,12 +24,24 @@ The backend is itself a <code>host:port</code> (it contains a colon), so the col
 
 ## The helper — `scripts/fleet.sh`
 
-For each line it creates a sealed sandbox, writes a **policy scoped to just that backend** (everything else stays deny-by-default, plus the in-cluster skill registry), and stages the agent's persona from `manifests/openclaw/fleet-roles/<name>/`. The whole script:
+For each line it creates a sealed sandbox, writes a **policy scoped to just that backend** (everything else stays deny-by-default, plus the in-cluster skill registry), and stages the agent's persona from `manifests/openclaw/fleet-roles/<name>/`.
+
+Bring the fleet up (this creates the sandboxes, scopes each policy, and stages each persona — it prints progress per agent):
 
 ```bash
-./scripts/fleet.sh up fleet.txt      # bring the fleet up
-./scripts/fleet.sh status            # watch each become Ready
-./scripts/fleet.sh down fleet.txt    # tear it down
+./scripts/fleet.sh up fleet.txt
+```
+
+Then watch them reach Ready:
+
+```bash
+./scripts/fleet.sh status
+```
+
+When you're **done with the workshop** and want to remove them, run this — *don't* run it now, it tears the fleet down:
+
+```bash-ref
+./scripts/fleet.sh down fleet.txt
 ```
 
 The policy it writes per agent is the governance point — **specific to the tool**. The `metrics` agent gets *only* this beyond the registry:
