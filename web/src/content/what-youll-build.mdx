@@ -4,14 +4,15 @@ You've built one sealed agent, given it a brain, skills from your own registry, 
 
 ## The idea: a team of read-only specialists
 
-When something breaks, you reach for three signals — **logs, metrics, traces**. So the fleet is three specialists plus a writer:
+When something breaks, you reach for four signals — **logs, metrics, traces, and the cluster's own events**. So the fleet is four read-only specialists plus a lead analyst:
 
 - **logs** 🔎 — reads **Loki**, and can reach `loki.monitoring.svc:3100` and nothing else.
 - **metrics** 📈 — reads **Prometheus**, scoped to `…prometheus…:9090` only.
 - **traces** 🧵 — reads **Tempo**, scoped to `tempo.monitoring.svc:3200` only.
-- **writer** ✍️ — **no egress at all**; it synthesizes the others' findings into a root-cause report.
+- **events** 🛎️ — reads **Kubernetes events** (shipped into Loki by an event-exporter), scoped to Loki only — the control plane's own account of what's wrong (e.g. "Failed to pull image …").
+- **analyst** 🧠 — **no egress at all**; it concludes the others' findings into a root cause and a recommended fix.
 
-Each agent's **policy is specific to its tool** — the metrics agent literally cannot read logs, the writer cannot reach the network. That's not a limitation to work around; it *is* the product: a fleet you can hand a production incident without widening anyone's blast radius, and prove it from the audit log.
+Each agent's **policy is specific to its tool** — the metrics agent literally cannot read logs, the analyst cannot reach the network. That's not a limitation to work around; it *is* the product: a fleet you can hand a production incident without widening anyone's blast radius, and prove it from the audit log.
 
 <Callout type="note" title="Agents diagnose; humans fix">
 These agents are sealed from the in-cluster Kubernetes API — they do <strong>read-only investigation</strong> of telemetry, never cluster administration. So the loop is: the fleet finds the root cause, proposes a change, and a <strong>human approves</strong> before anything is applied. (In production that applied change is a git commit ArgoCD syncs — same shape, just automated delivery.)
@@ -20,9 +21,9 @@ These agents are sealed from the in-cluster Kubernetes API — they do <strong>r
 ## The arc of this part
 
 1. **Spin up & give each a soul** — one command brings the fleet up; each agent gets its own `IDENTITY.md` / `SOUL.md` and a policy scoped to just its backend.
-2. **Orchestrate an investigation** — a conductor *in this page* plans over the completions API and routes each step to the right specialist.
+2. **Orchestrate an investigation** — a conductor *in this page* runs a fixed plan, handing each specialist a prescribed probe and letting a lead analyst conclude.
 3. **Test the fleet** — deploy a sample app, break it, watch it go unhealthy, let the fleet find the cause, and fix it with you in the loop.
 
 <Callout type="rh" title="The demo that lands">
-A judge breaks an app with one click, asks the fleet "what happened?", and watches three sealed agents — each provably touching only its own backend — converge on the root cause; then approves the one-line fix. Extensible, useful, and <em>governable</em> — on real OpenShift.
+A judge breaks an app with one click, asks the fleet "what happened?", and watches four sealed agents — each provably touching only its own backend — converge on the root cause; then approves the one-line fix. Extensible, useful, and <em>governable</em> — on real OpenShift.
 </Callout>

@@ -1,0 +1,63 @@
+The fleet you built is a **pattern**, not a fixed thing: *a sealed agent = one backend (egress) +
+one persona (SOUL) + one prescribed probe*, and a no-egress analyst that concludes. Adding to it
+never widens the trust boundary — each new agent reaches exactly one more host, in its own policy,
+every call in the audit log. Here are concrete, genuinely-new directions to take it on your own.
+
+## A new specialist: the alerts agent 🚨
+
+You already have logs, metrics, traces, and events. Add a fifth that reads **Alertmanager** —
+what's *already firing* — so the fleet starts from the alerts, not just raw signals.
+
+1. **Spec** — one line in `fleet.txt` (Alertmanager is part of the kube-prometheus stack):
+
+   ```text
+   alerts   kps-kube-prometheus-stack-alertmanager.monitoring.svc.cluster.local:9093   -
+   ```
+2. **Soul** — `manifests/openclaw/fleet-roles/alerts/{IDENTITY.md,SOUL.md}`: "you read firing
+   alerts only; surface alertname, severity, and the object."
+3. **Probe** — add to `buildProbes()` in the orchestrator:
+
+   ```text
+   alerts: http://<alertmanager>:9093/api/v2/alerts
+   ```
+   `tq.js` already renders JSON arrays compactly. `fleet.sh up` does the rest.
+
+## A new fault: make the four signals *combine*
+
+The image-pull fault is clean, but metrics alone cracks it. Inject something that needs the fleet
+to **reconcile multiple signals** — that's where a fleet earns its keep:
+
+- **CrashLoopBackOff** — ship a bad command/args. Now `events` shows BackOff, `logs` shows the
+  crash output (real log lines!), `metrics` shows restart counts climbing. The analyst has to
+  weave all three.
+- **Bad config** — mount a ConfigMap with a wrong value. The app *starts* (so no ImagePull
+  signal), logs errors, latency spikes in traces, and an SLO alert fires. Four angles, one cause.
+
+Wire it as another action in [`/api/incident`](/learn/incident-lab) next to `break`.
+
+## A first-class skill instead of curl
+
+Right now each agent runs a `curl`-based probe. Promote it to a **real tool** published to your
+private registry (Part V): a `@workshop/promql` skill exposing `promql(query)`, or `@workshop/logql`.
+Put `@workshop/promql` in the `skill` column of `fleet.txt` and the metrics agent calls a typed
+tool instead of hand-rolled HTTP — same governance, nicer ergonomics.
+
+## Close the loop with GitOps
+
+Today the approved fix is a `kubectl` change behind a human confirm. In production, make "Apply
+fix" open a **pull request** instead — the analyst's recommended image becomes a one-line commit a
+reviewer approves and **ArgoCD** syncs. Same shape (fleet recommends → human approves → delivered),
+real delivery. The human gate doesn't move; only the mechanism does.
+
+## Point it at *your* workload
+
+The orchestrator is parameterized: `INCIDENT_NS`, `PROM_HOST`, `LOKI_HOST`, `TEMPO_HOST` are all
+env-overridable. Deploy your own app, set `INCIDENT_NS`, and the same fleet investigates *your*
+namespace. Nothing about the pattern is specific to `demo/shop`.
+
+<Callout type="rh" title="The test of a good pattern">
+Every idea above is the <em>same three moves</em>: add an egress line, add a persona, add a probe.
+If extending a multi-agent system to a new signal is three small, auditable changes — and never a
+new way to widen who-can-reach-what — you've built something you can actually operate. That's the
+point of the whole workshop.
+</Callout>

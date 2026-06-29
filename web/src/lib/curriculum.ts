@@ -69,10 +69,12 @@ export const CURRICULUM: Part[] = [
     subtitle: "The capstone: an SRE copilot fleet that investigates a real incident",
     accent: "nv",
     lessons: [
-      { slug: "what-youll-build", title: "The Challenge: An SRE Copilot Fleet", blurb: "Several sealed agents — logs, metrics, traces — each scoped to one backend, combined to find root cause.", minutes: 8 },
+      { slug: "what-youll-build", title: "The Challenge: An SRE Copilot Fleet", blurb: "Four sealed agents — logs, metrics, traces, events — each scoped to one backend, combined by a lead analyst to find root cause.", minutes: 8 },
       { slug: "fleet-spinup", title: "Spin Up & Give Each a Soul", blurb: "One command brings the fleet up; each agent gets its own IDENTITY/SOUL, a skill, and a policy scoped to just its tool.", minutes: 10, hasLab: true },
-      { slug: "fleet-status", title: "The Fleet, at a Glance", blurb: "One page: every agent's status and the exact egress its policy allows — proof each policy is specific to its tool.", minutes: 6, hasLab: true },
+      { slug: "fleet-status", title: "The Fleet, at a Glance", blurb: "One page: every agent's status, the exact egress its policy allows, and its SOUL — proof each policy is specific to its tool.", minutes: 6, hasLab: true },
       { slug: "incident-lab", title: "Orchestrate & Resolve an Incident", blurb: "Deploy an app, break it, let the fleet investigate and recommend a fix — then you review, adjust, and approve the change.", minutes: 14, hasLab: true },
+      { slug: "orchestration", title: "Under the Hood: How It's Orchestrated", blurb: "The real code and prompts behind the fleet — the fixed plan, each agent's prescribed probe, the cluster-telemetry skill, and the analyst's synthesis. Nothing hidden.", minutes: 10 },
+      { slug: "build-your-own", title: "Build Your Own", blurb: "The fleet is a pattern, not a fixed thing — concrete new agents, faults, and skills to extend it with, on your own.", minutes: 8 },
     ],
   },
   {
