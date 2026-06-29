@@ -18,6 +18,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; REPO="$(cd "$HERE/.." && p
 [[ -f "$REPO/.env" ]] && set -a && . "$REPO/.env" && set +a || true
 IMAGE="${OPENCLAW_SANDBOX_IMAGE:-ghcr.io/ansjindal/openclaw-sandbox:2026.6.10}"
 MODEL="${NEMOCLAW_MODEL:-}"; PROVIDER="${NEMOCLAW_INFERENCE_PROVIDER:-default}"
+API="${NEMOCLAW_INFERENCE_API:-openai-completions}"
 ROLES="$REPO/manifests/openclaw/fleet-roles"
 ox() { openshell sandbox exec -n "$1" -- sh -c "$2" </dev/null 2>&1 | grep -viE 'UNDICI|trace-warn' || true; }
 b64() { base64 | tr -d '\n'; }
@@ -88,7 +89,12 @@ up() {
         [[ -f "$ROLES/$name/$f" ]] && ox "$name" "mkdir -p /sandbox && echo $(b64 < "$ROLES/$name/$f") | base64 -d > /sandbox/$f"
       done
     fi
-    [[ -n "$MODEL" ]] && ox "$name" "mkdir -p /sandbox/.openclaw && echo $(printf '{"model":"%s","provider":"%s","baseUrl":"https://inference.local/v1"}' "$MODEL" "$PROVIDER" | b64) | base64 -d > /sandbox/.openclaw/openclaw.json"
+    if [[ -n "$MODEL" ]]; then
+      # Valid OpenClaw config schema (matches a working agent): the model is a provider-scoped
+      # id, and the provider points at inference.local (the supervisor injects the real key).
+      local cfg; cfg=$(printf '{"agents":{"defaults":{"model":{"primary":"custom/%s"}}},"models":{"providers":{"custom":{"baseUrl":"https://inference.local/v1","apiKey":"openshell-router","api":"%s","models":[{"id":"%s","name":"%s"}]}}}}' "$MODEL" "$API" "$MODEL" "$MODEL")
+      ox "$name" "mkdir -p /sandbox/.openclaw && echo $(printf '%s' "$cfg" | b64) | base64 -d > /sandbox/.openclaw/openclaw.json"
+    fi
     # optional registry skill (best-effort — the agent still works via its SOUL if absent)
     if [[ "${SK[$i]}" != "-" && -n "${SK[$i]}" ]]; then
       local auth; auth=$(printf 'workshop:%s' "${OPENCLAW_REGISTRY_PASSWORD:-wad26-skills}" | b64)

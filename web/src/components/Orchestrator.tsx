@@ -1,23 +1,38 @@
 "use client";
 import { useState } from "react";
-import { Play, Loader2, ListOrdered } from "lucide-react";
+import { Play, Loader2, ListOrdered, CheckCircle2 } from "lucide-react";
+import { streamOrchestrate } from "@/lib/orchestrateStream";
 
 type Step = { agent: string; subtask: string; out?: string };
-type Result = { ok: boolean; fleet?: string[]; plan?: Step[]; results?: Step[]; answer?: string; error?: string; synthesizedBy?: string };
+type TL = { agent: string; status: "queued" | "running" | "done"; ms?: number };
 
 // Part VI capstone widget: type a task, the website orchestrates the fleet — plan (completions)
-// → dispatch each step to a sealed specialist agent → synthesize. Watch it in the browser.
+// → dispatch each step to a sealed specialist agent (in parallel) → the writer synthesizes.
+// Streams a LIVE TIMELINE of each agent so you watch it happen (and long runs never time out).
 export function Orchestrator() {
-  const [task, setTask] = useState("The 'shop' deployment in namespace demo is unhealthy — investigate with logs, metrics and traces, and report the root cause.");
+  const [task, setTask] = useState("The 'shop' deployment in namespace demo is unhealthy — investigate with logs and metrics, and report the root cause.");
   const [busy, setBusy] = useState(false);
-  const [res, setRes] = useState<Result | null>(null);
+  const [err, setErr] = useState("");
+  const [fleet, setFleet] = useState<string[]>([]);
+  const [plan, setPlan] = useState<Step[]>([]);
+  const [timeline, setTimeline] = useState<TL[]>([]);
+  const [results, setResults] = useState<Step[]>([]);
+  const [answer, setAnswer] = useState<{ text: string; by?: string } | null>(null);
 
   const run = async () => {
-    setBusy(true); setRes(null);
+    setBusy(true); setErr(""); setPlan([]); setTimeline([]); setResults([]); setAnswer(null);
+    const acc: Step[] = [];
     try {
-      const r = await fetch("/api/orchestrate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ task }) });
-      setRes(await r.json());
-    } catch (e) { setRes({ ok: false, error: e instanceof Error ? e.message : String(e) }); }
+      await streamOrchestrate(task, (e) => {
+        if (e.type === "plan-start") setFleet(e.fleet || []);
+        else if (e.type === "plan") { setPlan(e.steps || []); setTimeline((e.steps || []).map((s) => ({ agent: s.agent, status: "queued" }))); }
+        else if (e.type === "step" && e.status === "start") setTimeline((tl) => tl.map((x) => x.agent === e.agent ? { ...x, status: "running" } : x));
+        else if (e.type === "step" && e.status === "done") { acc.push({ agent: e.agent!, subtask: "", out: e.out }); setResults([...acc]); setTimeline((tl) => tl.map((x) => x.agent === e.agent ? { ...x, status: "done", ms: e.ms } : x)); }
+        else if (e.type === "writer") setTimeline((tl) => [...tl, { agent: "writer", status: "running" }]);
+        else if (e.type === "answer") { setTimeline((tl) => tl.map((x) => x.agent === "writer" ? { ...x, status: "done", ms: e.ms } : x)); setAnswer({ text: e.answer || "", by: e.synthesizedBy }); }
+        else if (e.type === "error") setErr(e.error || "failed");
+      });
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     setBusy(false);
   };
 
@@ -31,32 +46,44 @@ export function Orchestrator() {
           className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-nv)] px-4 py-2 text-sm font-semibold text-[#06080b] hover:bg-[var(--color-nv-bright)] disabled:opacity-50">
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />} {busy ? "Running…" : "Run"}
         </button>
-        {res?.fleet && <span className="text-xs text-[var(--color-fg-mut)]">fleet: {res.fleet.join(", ")}</span>}
+        {fleet.length > 0 && <span className="text-xs text-[var(--color-fg-mut)]">fleet: {fleet.join(", ")}</span>}
       </div>
 
-      {res && !res.ok && <p className="mt-3 text-sm text-[var(--color-rh-bright)]">⚠ {res.error}</p>}
-      {res?.ok && (
-        <div className="mt-4 space-y-3 text-sm">
-          {res.plan && (
-            <div>
-              <div className="text-xs font-semibold text-[var(--color-fg-mut)]">PLAN</div>
-              <ol className="mt-1 list-decimal pl-5 text-[var(--color-fg-dim)]">
-                {res.plan.map((s, i) => <li key={i}><span className="text-[var(--color-nv-bright)]">{s.agent}</span> — {s.subtask}</li>)}
-              </ol>
-            </div>
-          )}
-          {res.results?.map((s, i) => (
-            <div key={i} className="rounded-lg border border-[var(--color-line)] p-2.5">
-              <div className="text-xs font-semibold text-[var(--color-nv-bright)]">🦞 {s.agent}</div>
-              <pre className="mt-1 whitespace-pre-wrap break-words text-xs text-[var(--color-fg-dim)]">{s.out}</pre>
-            </div>
-          ))}
-          {res.answer && (
-            <div className="rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-bg)] p-3">
-              <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{res.synthesizedBy === "writer" ? "🦞 WRITER AGENT — combined root cause & fix" : "SYNTHESIZED ANSWER"}</div>
-              <pre className="mt-1 whitespace-pre-wrap break-words text-sm">{res.answer}</pre>
-            </div>
-          )}
+      {err && <p className="mt-3 text-sm text-[var(--color-rh-bright)]">⚠ {err}</p>}
+
+      {timeline.length > 0 && (
+        <div className="mt-3 rounded-lg border border-[var(--color-line)] p-2">
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">TIMELINE</div>
+          <div className="mt-1 space-y-0.5 text-xs">
+            {timeline.map((x) => (
+              <div key={x.agent} className="flex items-center gap-2">
+                {x.status === "done" ? <CheckCircle2 size={12} className="text-[var(--color-nv-bright)]" /> : <Loader2 size={12} className="animate-spin text-[var(--color-fg-mut)]" />}
+                <span className="font-semibold">{x.agent === "writer" ? "✍️ writer (synthesize)" : `🦞 ${x.agent}`}</span>
+                <span className="text-[var(--color-fg-mut)]">{x.status === "done" ? `${((x.ms || 0) / 1000).toFixed(1)}s` : x.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {plan.length > 0 && (
+        <div className="mt-3 text-sm">
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">PLAN</div>
+          <ol className="mt-1 list-decimal pl-5 text-[var(--color-fg-dim)]">
+            {plan.map((s, i) => <li key={i}><span className="text-[var(--color-nv-bright)]">{s.agent}</span> — {s.subtask}</li>)}
+          </ol>
+        </div>
+      )}
+      {results.map((s, i) => (
+        <div key={i} className="mt-2 rounded-lg border border-[var(--color-line)] p-2.5 text-sm">
+          <div className="text-xs font-semibold text-[var(--color-nv-bright)]">🦞 {s.agent}</div>
+          <pre className="mt-1 whitespace-pre-wrap break-words text-xs text-[var(--color-fg-dim)]">{s.out}</pre>
+        </div>
+      ))}
+      {answer && (
+        <div className="mt-2 rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-bg)] p-3 text-sm">
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{answer.by === "writer" ? "🦞 WRITER AGENT — combined root cause & fix" : "SYNTHESIZED ANSWER"}</div>
+          <pre className="mt-1 whitespace-pre-wrap break-words text-sm">{answer.text}</pre>
         </div>
       )}
     </div>

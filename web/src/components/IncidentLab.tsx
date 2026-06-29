@@ -1,9 +1,11 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 import { Rocket, Bug, Stethoscope, Wrench, Loader2, RefreshCw, CheckCircle2, XCircle, AlertTriangle, Trash2 } from "lucide-react";
+import { streamOrchestrate } from "@/lib/orchestrateStream";
 
 type Health = { exists?: boolean; ready?: string; healthy?: boolean; pods?: string; current?: string; good?: string };
 type Invest = { ok?: boolean; results?: { agent: string; out: string }[]; answer?: string; error?: string; synthesizedBy?: string };
+type TL = { agent: string; status: "queued" | "running" | "done"; ms?: number };
 
 // Part VI capstone — the full incident loop in one place: deploy a sample app, inject a
 // fault, watch it go unhealthy, let the FLEET investigate and RECOMMEND a fix, then the
@@ -14,6 +16,8 @@ export function IncidentLab() {
   const [busy, setBusy] = useState<string | null>(null);
   const [inv, setInv] = useState<Invest | null>(null);
   const [humanImage, setHumanImage] = useState("");
+  const [recommended, setRecommended] = useState<{ image: string; fromFleet: boolean }>({ image: "", fromFleet: false });
+  const [timeline, setTimeline] = useState<TL[]>([]);
 
   const refresh = useCallback(async () => { try { setH(await (await fetch("/api/incident")).json()); } catch { /* */ } }, []);
   useEffect(() => { refresh(); const t = setInterval(refresh, 6000); return () => clearInterval(t); }, [refresh]); // live pod view
@@ -35,12 +39,23 @@ export function IncidentLab() {
   };
 
   const investigate = async () => {
-    setBusy("investigate"); setInv(null);
+    setBusy("investigate"); setInv(null); setTimeline([]);
+    const results: { agent: string; out: string }[] = [];
+    const task = "The 'shop' deployment in namespace demo is unhealthy. Investigate with logs (Loki) and metrics (Prometheus), state the root cause, and recommend the concrete fix. End your reply with a single line exactly: FIX_IMAGE: <the container image deploy/shop should be set to>";
     try {
-      const r = await fetch("/api/orchestrate", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ task: "The 'shop' deployment in namespace demo is unhealthy. Investigate with logs (Loki), metrics (Prometheus) and traces (Tempo), state the root cause, and recommend the concrete fix." }) });
-      const j = await r.json(); setInv(j);
-      if (j.ok) setHumanImage(h?.good || "");          // pre-fill the human fix with the fleet's suggestion
+      await streamOrchestrate(task, (e) => {
+        if (e.type === "plan") setTimeline((e.steps || []).map((s) => ({ agent: s.agent, status: "queued" })));
+        else if (e.type === "step" && e.status === "start") setTimeline((tl) => tl.map((x) => x.agent === e.agent ? { ...x, status: "running" } : x));
+        else if (e.type === "step" && e.status === "done") { results.push({ agent: e.agent!, out: e.out || "" }); setTimeline((tl) => tl.map((x) => x.agent === e.agent ? { ...x, status: "done", ms: e.ms } : x)); }
+        else if (e.type === "writer") setTimeline((tl) => [...tl, { agent: "writer", status: "running" }]);
+        else if (e.type === "answer") {
+          setTimeline((tl) => tl.map((x) => x.agent === "writer" ? { ...x, status: "done", ms: e.ms } : x));
+          setInv({ ok: true, results: [...results], answer: e.answer, synthesizedBy: e.synthesizedBy });
+          const m = /FIX_IMAGE:\s*(\S+)/i.exec(e.answer || "");   // the fix comes from the FLEET's recommendation
+          const img = (m && m[1]) || h?.good || "";
+          setRecommended({ image: img, fromFleet: !!m }); setHumanImage(img);
+        } else if (e.type === "error") setInv({ ok: false, error: e.error });
+      });
     } catch (e) { setInv({ ok: false, error: e instanceof Error ? e.message : String(e) }); }
     finally { setBusy(null); }
   };
@@ -62,7 +77,7 @@ export function IncidentLab() {
     </button>
   );
 
-  const differs = inv?.ok && humanImage && h?.good && humanImage !== h.good;
+  const differs = inv?.ok && humanImage && recommended.image && humanImage !== recommended.image;
 
   return (
     <div className="my-6 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-4">
@@ -104,6 +119,22 @@ export function IncidentLab() {
         <Btn a="investigate" on={investigate} icon={<Stethoscope size={14} />} label="3 · Investigate (fleet)" disabled={h?.healthy !== false} />
       </div>
 
+      {/* live timeline — each agent as it starts/finishes */}
+      {timeline.length > 0 && (
+        <div className="mt-3 rounded-lg border border-[var(--color-line)] p-2">
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">TIMELINE</div>
+          <div className="mt-1 space-y-0.5 text-xs">
+            {timeline.map((x) => (
+              <div key={x.agent} className="flex items-center gap-2">
+                {x.status === "done" ? <CheckCircle2 size={12} className="text-[var(--color-nv-bright)]" /> : <Loader2 size={12} className="animate-spin text-[var(--color-fg-mut)]" />}
+                <span className="font-semibold">{x.agent === "writer" ? "✍️ writer (synthesize)" : `🦞 ${x.agent}`}</span>
+                <span className="text-[var(--color-fg-mut)]">{x.status === "done" ? `${((x.ms || 0) / 1000).toFixed(1)}s` : x.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {inv && !inv.ok && <p className="mt-3 text-sm text-[var(--color-rh-bright)]">⚠ {inv.error || "investigation failed — is the fleet up? (./scripts/fleet.sh up fleet.txt)"}</p>}
 
       {inv?.ok && (
@@ -125,7 +156,11 @@ export function IncidentLab() {
           {/* Step 4: human reviews & applies the fix */}
           <div className="rounded-lg border border-[var(--color-line-2)] p-3">
             <div className="text-xs font-semibold text-[var(--color-fg-mut)]">✋ YOUR FIX (human-in-the-loop)</div>
-            <p className="mt-1 text-xs text-[var(--color-fg-dim)]">The fleet recommends reverting to a valid image. Approve as-is, or adjust the target — you own the change that touches the cluster.</p>
+            <p className="mt-1 text-xs text-[var(--color-fg-dim)]">
+              {recommended.fromFleet
+                ? <>The <strong>fleet recommends</strong> setting the image to <code>{recommended.image}</code> (from its investigation above). Approve as-is, or adjust the target — you own the change that touches the cluster.</>
+                : <>The fleet recommended reverting to a valid image; pre-filled with the last-known-good. Approve, or adjust — you own the change that touches the cluster.</>}
+            </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className="text-xs text-[var(--color-fg-mut)]">image →</span>
               <input value={humanImage} onChange={(e) => setHumanImage(e.target.value)}
@@ -133,7 +168,7 @@ export function IncidentLab() {
               <Btn a="fix" on={applyFix} icon={<Wrench size={14} />} label="Apply fix ✋" kind="fix" />
             </div>
             {differs ? (
-              <p className="mt-2 inline-flex items-center gap-1 text-xs text-[var(--color-rh-bright)]"><AlertTriangle size={12} /> Differs from the fleet's suggestion (<code>{h?.good?.split("/").pop()}</code>) — your call, on the record.</p>
+              <p className="mt-2 inline-flex items-center gap-1 text-xs text-[var(--color-rh-bright)]"><AlertTriangle size={12} /> Differs from the fleet's recommendation (<code>{recommended.image?.split("/").pop()}</code>) — your call, on the record.</p>
             ) : inv.ok ? <p className="mt-2 text-xs text-[var(--color-fg-mut)]">Matches the fleet's recommendation.</p> : null}
           </div>
         </div>
