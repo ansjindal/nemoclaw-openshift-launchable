@@ -46,6 +46,18 @@ See the sandbox **pods** on the cluster (each agent is a sealed pod):
 oc get pods -n openshell
 ```
 
+The same fleet as **Sandbox custom resources** — what the OpenShell gateway reconciles into those pods:
+
+```bash
+oc get sandboxes -n openshell
+```
+
+And the **gateway's own view** of the fleet (its phase) — `openshell` talks to the gateway, not the Kubernetes API:
+
+```bash
+openshell sandbox list
+```
+
 Inspect any one agent's **effective policy** — proof its egress is scoped to just its tool:
 
 ```bash
