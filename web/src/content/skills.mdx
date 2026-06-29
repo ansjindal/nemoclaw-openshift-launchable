@@ -253,19 +253,30 @@ It's now a first-class package in *your* registry (`@workshop/hello-world@0.1.0`
 
 Everything from step 1 on only worked because you **opened ClawHub temporarily**. Now close it and return to the agent's shipped posture: **the registry is its only skill source.** npm's *default* registry already points at Verdaccio (it uplinks to npmjs and caches deps), so you just drop ClawHub and npm from the policy, leaving **one egress endpoint** — this is exactly the policy your agent boots with:
 
-```yaml
-# locked policy — the only place the agent may fetch skills OR deps
+Write that locked policy to a file, then apply it. `openshell policy set` reads the file from your lab shell, and it **replaces** the whole policy — so this is a complete policy doc (filesystem + process + the single egress rule), not just the network block:
+
+```bash
+cat > locked.yaml <<'YAML'
+version: 1
+filesystem_policy:
+  include_workdir: true
+  read_only: [/usr, /lib, /proc, /dev/urandom, /app, /etc, /var/log]
+  read_write: [/sandbox, /tmp, /dev/null]
+landlock: { compatibility: best_effort }
+process: { run_as_user: sandbox, run_as_group: sandbox }
 network_policies:
+  # locked — the only place the agent may fetch skills OR deps
   in-cluster-registry:
+    name: in-cluster-registry
     endpoints:
       - { host: registry.openshell.svc.cluster.local, port: 4873, protocol: rest, access: full, allow_encoded_slash: true }
     binaries: [ {path: /usr/bin/npm}, {path: /usr/local/bin/npm}, {path: /usr/bin/node}, {path: /usr/local/bin/node} ]
   # clawhub.ai, hub.openclaw.ai, registry.npmjs.org — removed
-```
-
-```bash
+YAML
 openshell policy set shifty --policy locked.yaml --wait
 ```
+
+(This locks egress to the registry alone. If you completed the web-search lesson and want to keep DuckDuckGo, add its `websearch` rule back to the file before applying.)
 
 Now prove the boundary. ClawHub is gone:
 
