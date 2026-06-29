@@ -8,7 +8,7 @@ type Result = { ok: boolean; fleet?: string[]; plan?: Step[]; results?: Step[]; 
 // Part VI capstone widget: type a task, the website orchestrates the fleet — plan (completions)
 // → dispatch each step to a sealed specialist agent → synthesize. Watch it in the browser.
 export function Orchestrator() {
-  const [task, setTask] = useState("Summarize the open issues in a repo and draft a short triage note.");
+  const [task, setTask] = useState("The 'shop' deployment in namespace demo is unhealthy — investigate with logs, metrics and traces, and report the root cause.");
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<Result | null>(null);
 

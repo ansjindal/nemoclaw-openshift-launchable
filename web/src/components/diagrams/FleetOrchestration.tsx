@@ -20,9 +20,9 @@ export function FleetOrchestration() {
     </g>
   );
   const agents = [
-    { y: 70, role: "reader 🦞", skill: "@workshop/repo-reader", egress: "github.com only" },
-    { y: 196, role: "searcher 🦞", skill: "web-search", egress: "duckduckgo.com only" },
-    { y: 322, role: "writer 🦞", skill: "summarizer", egress: "no egress" },
+    { y: 70, role: "logs 🦞", skill: "reads Loki", egress: "loki:3100 only" },
+    { y: 196, role: "metrics 🦞", skill: "reads Prometheus", egress: "prometheus:9090 only" },
+    { y: 322, role: "traces 🦞", skill: "reads Tempo", egress: "tempo:3200 only" },
   ];
   return (
     <figure className="my-6 overflow-hidden rounded-xl border border-[var(--color-line)]">
@@ -55,10 +55,10 @@ export function FleetOrchestration() {
             <Arrow x1={600} y1={a.y + 38} x2={430} y2={a.y === 196 ? 240 : 235} color={C.ctrl} />
           </g>
         ))}
-        <text x={745} y={398} fontSize={9.6} fill={C.sub} textAnchor="middle">each: gVisor-sealed · one registry skill · its own egress rule</text>
+        <text x={745} y={398} fontSize={9.6} fill={C.sub} textAnchor="middle">each: sealed · its own IDENTITY/SOUL · egress to ONE telemetry backend</text>
 
-        <text x={W / 2} y={432} fontSize={10.5} fill={C.sub} textAnchor="middle">Spin the fleet with one helper (<tspan fontStyle="italic">fleet up</tspan>); the orchestrator routes each step to the agent whose skill + policy fit.</text>
-        <text x={W / 2} y={449} fontSize={10.5} fill={C.sub} textAnchor="middle">Every sub-task and every egress call is governed by per-agent policy and lands in the audit log.</text>
+        <text x={W / 2} y={432} fontSize={10.5} fill={C.sub} textAnchor="middle">An SRE copilot fleet: give it an incident, it fans across logs + metrics + traces and synthesizes a root cause.</text>
+        <text x={W / 2} y={449} fontSize={10.5} fill={C.sub} textAnchor="middle">Each agent provably reaches only its backend — and the fix is applied with a human in the loop.</text>
       </svg>
     </figure>
   );

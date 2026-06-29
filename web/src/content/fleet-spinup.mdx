@@ -1,0 +1,60 @@
+You don't want to repeat *Create Your Agent* → *Give It a Brain* → *Identity & Soul* by hand for every specialist. So the fleet is described in **one spec** and brought up by **one helper** — create, scope the policy, stage the persona — in a loop.
+
+## The spec — one line per agent
+
+`fleet.txt` says who's in the fleet, the single backend each may reach, and the **skill** each carries:
+
+```text
+# name : backend (host:port the agent may reach, or "-") : skill (a registry skill, or "-")
+logs    : loki.monitoring.svc.cluster.local:3100      : @workshop/loki-query
+metrics : …prometheus…:9090                           : @workshop/promql
+traces  : tempo.monitoring.svc.cluster.local:3200     : @workshop/tempo-search
+writer  : -                                           : -
+```
+
+The **skill** is the tool the role uses — installed from the **registry you built in Part V**. A `@workshop/promql` skill, for instance, gives the metrics agent a first-class `promql(query)` tool instead of hand-rolled `curl`. Author them with the *Skills & Governance* flow (or set the skill to `-` and let the agent query the API directly per its `SOUL.md` — both work; the skill just makes the tool cleaner and reusable).
+
+## The helper — `scripts/fleet.sh`
+
+For each line it creates a sealed sandbox, writes a **policy scoped to just that backend** (everything else stays deny-by-default, plus the in-cluster skill registry), and stages the agent's persona from `manifests/openclaw/fleet-roles/<name>/`. The whole script:
+
+```bash
+./scripts/fleet.sh up fleet.txt      # bring the fleet up
+./scripts/fleet.sh status            # watch each become Ready
+./scripts/fleet.sh down fleet.txt    # tear it down
+```
+
+The policy it writes per agent is the governance point — **specific to the tool**. The `metrics` agent gets *only* this beyond the registry:
+
+```yaml
+network_policies:
+  in-cluster-registry: { … }                 # every agent: install skills from your registry
+  tool-egress:
+    name: tool-egress
+    endpoints: [ { host: kps-kube-prometheus-stack-prometheus.monitoring.svc.cluster.local, port: 9090, access: full } ]
+    binaries: [ { path: /usr/bin/node }, { path: /usr/bin/curl } ]
+```
+
+So `metrics` can reach Prometheus and nothing else; `logs` gets Loki:3100 and nothing else; `writer` gets **no `tool-egress` at all**. Try to make one reach another's backend and the proxy denies it — visible on the [Live](/learn/live) **Policy decisions** tab.
+
+## Each agent's soul — the role
+
+The same `IDENTITY.md` / `SOUL.md` files from *Identity & Soul*, one set per specialist, are what make them behave differently. `fleet.sh` stages them from `manifests/openclaw/fleet-roles/<name>/`. The **metrics** agent's soul, for example:
+
+```markdown
+# SOUL.md — how Gauge works
+You investigate **metrics only**. Your one tool is **Prometheus** …:9090. Nothing else
+is reachable, and that's the point.
+When handed an incident, query /api/v1/query with PromQL such as:
+- kube_deployment_status_replicas_unavailable{namespace="demo",deployment="shop"}
+- kube_pod_container_status_waiting_reason{namespace="demo"}   (ImagePullBackOff/CrashLoopBackOff)
+Report the numbers that matter — with the exact series. Numbers, not narratives.
+```
+
+`logs` (Scout) is told to pull error lines from Loki; `traces` (Trace) to find error/slow spans in Tempo; `writer` (Scribe) has no egress and only synthesizes. **Identity + soul + a tool-scoped policy = a specialist** — and you can read every line of what shapes it.
+
+<Callout type="note" title="Why this stays safe to scale">
+Adding a fifth agent is one more line in <code>fleet.txt</code> + one persona folder. It never widens the trust boundary: the new agent reaches exactly one more host, that grant is in its policy, and every call it makes is in the audit log.
+</Callout>
+
+Bring the fleet up, confirm `status` shows them Ready, then head to the next chapter to drive them.

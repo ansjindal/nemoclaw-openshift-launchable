@@ -1,52 +1,28 @@
-You've created one agent, given it a brain, installed skills from your **own registry**, and made it yours. The capstone goes further: **a small fleet of specialist agents — each carrying one skill and its own egress policy — driven by an orchestrator over the completions API.** Bring a real task; this is the shape we'll build on together.
+You've built one sealed agent, given it a brain, skills from your own registry, and a soul. The capstone makes it a **system**: an **SRE copilot fleet** — several agents, each owning *one* observability tool and *nothing else*, combined to investigate a real incident and propose a fix you approve.
 
 <FleetOrchestration />
 
-## The idea: specialists, not clones
+## The idea: a team of read-only specialists
 
-One sealed agent is useful. A *system* is several, each a **specialist** whose role is the skill it carries and the one host it may reach:
+When something breaks, you reach for three signals — **logs, metrics, traces**. So the fleet is three specialists plus a writer:
 
-- a **reader** with the `@workshop/repo-reader` skill, egress to `github.com` only,
-- a **searcher** with web-search, egress to DuckDuckGo only,
-- a **writer** with a summarizer skill and **no egress** at all.
+- **logs** 🔎 — reads **Loki**, and can reach `loki.monitoring.svc:3100` and nothing else.
+- **metrics** 📈 — reads **Prometheus**, scoped to `…prometheus…:9090` only.
+- **traces** 🧵 — reads **Tempo**, scoped to `tempo.monitoring.svc:3200` only.
+- **writer** ✍️ — **no egress at all**; it synthesizes the others' findings into a root-cause report.
 
-The skills you published to your registry in *Skills & Governance* **become the roles.** And because each agent has its own policy, the writer literally can't phone home and the reader can't reach anything but GitHub — the blast radius of any one agent is its job description.
+Each agent's **policy is specific to its tool** — the metrics agent literally cannot read logs, the writer cannot reach the network. That's not a limitation to work around; it *is* the product: a fleet you can hand a production incident without widening anyone's blast radius, and prove it from the audit log.
 
-## Spin the fleet — one command, not N setups
-
-You don't want to repeat *Give It a Brain* + *Skills* by hand for every agent. The repo ships a helper that reads a one-line-per-agent spec and brings the whole fleet up — **create → policy → config → install skill → start gateway** — in a loop:
-
-```text
-# fleet.txt  —  name : skill : the one host this agent may reach
-reader   : @workshop/repo-reader : github.com
-searcher : web-search            : duckduckgo.com
-writer   : -                     : -
-```
-
-```bash
-./scripts/fleet.sh up fleet.txt        # bring the whole fleet up
-./scripts/fleet.sh status              # watch each become Ready
-./scripts/fleet.sh down                # tear it all down
-```
-
-Each line becomes a sealed agent with exactly that skill and exactly that egress rule — everything else stays deny-by-default, plus the in-cluster registry it installs from. Adding a fourth specialist is **one more line**, no extra steps.
-
-<Callout type="note" title="Why this stays cheap to run untrusted">
-Every agent is created from the same governed baseline — sealed pod, deny-by-default egress, skills only from your registry. So "add an agent" never means "widen the trust boundary": a new specialist can reach exactly one more host, and that grant is in the audit log.
+<Callout type="note" title="Agents diagnose; humans fix">
+These agents are sealed from the in-cluster Kubernetes API — they do <strong>read-only investigation</strong> of telemetry, never cluster administration. So the loop is: the fleet finds the root cause, proposes a change, and a <strong>human approves</strong> before anything is applied. (In production that applied change is a git commit ArgoCD syncs — same shape, just automated delivery.)
 </Callout>
 
-## The orchestrator — built right into this page
+## The arc of this part
 
-No separate app to run — the conductor lives **in this website**. Type a task below and the site (1) asks the model over the **completions API** to break it into steps, (2) routes each step to the specialist whose skill fits — dispatching the real work to that sealed agent via `openclaw agent`, (3) asks the model to merge the results.
-
-<Orchestrator />
-
-The planning and synthesis hit `/v1/chat/completions`; each sub-task runs **inside its agent's seal** with that agent's skill and egress. The agents do the governed work; the page just conducts. Watch it live on the [Live](/learn/live) **Policy decisions** tab — each agent touching only its allowed host. (Bring the fleet up first with `./scripts/fleet.sh up fleet.txt`.)
-
-## We design this together
-
-`fleet.txt` + `fleet.sh` + `orchestrate.mjs` are the **starter kit**. The brief — what the fleet actually *does*, the exact roles, and how submissions are scored — we'll shape live in the session. Make it yours: swap in your own registry skills, give each agent a sharper `IDENTITY.md`, add a **reviewer** agent that critiques the writer before it ships.
+1. **Spin up & give each a soul** — one command brings the fleet up; each agent gets its own `IDENTITY.md` / `SOUL.md` and a policy scoped to just its backend.
+2. **Orchestrate an investigation** — a conductor *in this page* plans over the completions API and routes each step to the right specialist.
+3. **Test the fleet** — deploy a sample app, break it, watch it go unhealthy, let the fleet find the cause, and fix it with you in the loop.
 
 <Callout type="rh" title="The demo that lands">
-A judge types one request, watches the orchestrator fan it across three sealed agents — reader pulls, searcher enriches, writer composes — and reads the result, with every agent provably reaching <em>only</em> its allowed host. That's the whole pitch: extensible <strong>and</strong> governable, on real OpenShift.
+A judge breaks an app with one click, asks the fleet "what happened?", and watches three sealed agents — each provably touching only its own backend — converge on the root cause; then approves the one-line fix. Extensible, useful, and <em>governable</em> — on real OpenShift.
 </Callout>

@@ -1,0 +1,19 @@
+A fleet of specialists isn't useful until something *combines* them. That something is a small **orchestrator** — and it lives right in this page, no separate app to run.
+
+## How it works
+
+Type an incident below. The site:
+
+1. **Plans** — calls the model over the **completions API** (`/v1/chat/completions`) to break the task into ordered steps and route each to one agent from the fleet (`logs`, `metrics`, `traces`, `writer`).
+2. **Dispatches** — hands each step to that agent with `openclaw agent --local`, so the work runs **inside the agent's seal**, with its skill and its tool-scoped egress.
+3. **Synthesizes** — calls the model once more to merge the agents' findings into one answer.
+
+<Orchestrator />
+
+The conductor never touches a backend itself — it only plans and merges. The agents do the governed work: `logs` reads Loki, `metrics` reads Prometheus, `traces` reads Tempo, and each is provably unable to reach the others'. Watch the [Live](/learn/live) **Policy decisions** tab as it runs — three different agents, three different allowed hosts, every call logged.
+
+<Callout type="note" title="Why route, instead of one big agent?">
+You <em>could</em> give one agent all three backends. But then one prompt-injection or one bug has reach to logs <em>and</em> metrics <em>and</em> traces. Splitting the work across single-tool agents means the worst case is bounded to one tool — and the routing is just a few lines of completions glue. Least privilege, composed.
+</Callout>
+
+You've driven the fleet by hand. The last chapter closes the loop: a real (injected) incident, found and fixed.

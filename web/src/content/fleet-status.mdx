@@ -1,0 +1,22 @@
+With the fleet up, here's the whole thing on one page — every agent, whether it's Ready, and the **exact egress its policy allows**. This is where the governance story becomes something you can *see*: side by side, each agent's policy is **specific to its tool**.
+
+<FleetView />
+
+## What you're looking at
+
+Each card is one agent, read live from the cluster:
+
+- **Status** — `Ready` means the gateway has the sandbox up and its policy loaded.
+- **May reach** — pulled straight from the agent's *effective* policy (`openshell policy get <agent>`). Every agent shares the in-cluster **registry** (so it can install its skill); beyond that:
+  - `logs` reaches **Loki** and nothing else,
+  - `metrics` reaches **Prometheus** and nothing else,
+  - `traces` reaches **Tempo** and nothing else,
+  - `writer` reaches **nothing** — it only synthesizes.
+
+There's no honor system here. If the `metrics` agent tried to query Loki, the supervisor's proxy would deny it — and you'd see that denial on the [Live](/learn/live) **Policy decisions** tab, attributed to the agent and the rule. The blast radius of each agent is exactly its job.
+
+<Callout type="rh" title="This is the answer to 'can I trust a fleet of agents?'">
+Not "trust" as a vibe — trust as something you <strong>read off a page</strong>. Every capability each agent has (its tool) and every place it can reach (its egress) is explicit, per-agent, and auditable. Add a tenth agent and the picture stays just as legible.
+</Callout>
+
+The fleet is wired and provably bounded. Next: drive it — hand it an incident and watch the conductor route the work.

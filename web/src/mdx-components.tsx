@@ -16,6 +16,8 @@ import { SecurityLayers } from "@/components/diagrams/SecurityLayers";
 import { SkillSupplyChain } from "@/components/diagrams/SkillSupplyChain";
 import { FleetOrchestration } from "@/components/diagrams/FleetOrchestration";
 import { Orchestrator } from "@/components/Orchestrator";
+import { IncidentLab } from "@/components/IncidentLab";
+import { FleetView } from "@/components/FleetView";
 import { LiveOpenShell } from "@/components/LiveOpenShell";
 import { ServiceLink } from "@/components/ServiceLink";
 
@@ -36,6 +38,8 @@ const components: MDXComponents = {
   SkillSupplyChain,
   FleetOrchestration,
   Orchestrator,
+  IncidentLab,
+  FleetView,
   LiveOpenShell,
   ServiceLink,
   pre: CodeBlock, // every fenced code block gets a Copy / Run-in-shell toolbar

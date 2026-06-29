@@ -11,7 +11,7 @@ const HOME = process.env.HOME ?? "/home/ubuntu";
 const REPO = `${HOME}/nemoclaw-openshift-launchable`;
 const KUBECONFIG = process.env.KUBECONFIG || `${REPO}/kubeconfig`;
 const env = { ...process.env, NODE_NO_WARNINGS: "1", KUBECONFIG, PATH: `${process.env.PATH ?? ""}:${HOME}/.local/bin:/usr/local/bin:/usr/bin` };
-const FLEET = (process.env.FLEET || "reader,searcher,writer").split(",").map((s) => s.trim()).filter(Boolean);
+const FLEET = (process.env.FLEET || "logs,metrics,traces,writer").split(",").map((s) => s.trim()).filter(Boolean);
 
 // Inference config: process.env first, else parse the repo .env (same approach as the
 // devices route reads the gateway password). The host reaches the provider directly.

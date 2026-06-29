@@ -1,0 +1,5 @@
+# name : backend (host:port the agent may reach, or "-") : skill (a registry skill, or "-")
+logs    : loki.monitoring.svc.cluster.local:3100                                 : @workshop/loki-query
+metrics : kps-kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090 : @workshop/promql
+traces  : tempo.monitoring.svc.cluster.local:3200                                : @workshop/tempo-search
+writer  : -                                                                      : -

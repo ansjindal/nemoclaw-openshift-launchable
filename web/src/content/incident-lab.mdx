@@ -1,0 +1,24 @@
+Time to test the fleet on a real incident — one you cause on purpose. The lab below drives a sample app (`shop` in namespace `demo`) through the whole loop: **deploy → break → investigate → fix**, with you in the loop on the change.
+
+<IncidentLab />
+
+## The loop
+
+1. **Deploy** — stands up the `shop` Deployment (2 replicas) + Service. The badge goes **healthy**.
+2. **Inject fault** — ships a fault you'd normally introduce by mistake: a bad image tag. The new ReplicaSet can't pull, the rollout stalls, and the badge flips to **unhealthy** — visible in the UI exactly as a real regression would be.
+3. **Investigate (fleet)** — hands the incident to the orchestrator. `metrics` queries Prometheus (`kube_deployment_status_replicas_unavailable`, the `ImagePullBackOff` waiting reason), `logs` checks Loki, `traces` checks Tempo, and `writer` composes a **root-cause report** — each agent reaching only its own backend.
+4. **Apply fix ✋** — reverts the image. This is the one step a human confirms: the agents *found* the cause, but a person approves the change before it touches the live deployment.
+
+## Agents diagnose; humans (and GitOps) fix
+
+Notice what the agents never do: **touch the cluster**. They're sealed from the Kubernetes API — they only *read* telemetry. The fix is applied by you, through this page. That separation is the safety model: an investigator that can't change anything can be handed any incident.
+
+<Callout type="rh" title="Manual here, ArgoCD in production">
+In this lab the fix is a <code>kubectl</code> revert behind a confirm button. In production the same change is a <strong>git commit</strong> a reviewer approves, and <strong>ArgoCD</strong> syncs it to the cluster — identical shape (propose → human approves → delivered), just GitOps delivery instead of a button. The fleet's job — find the root cause and propose the fix — is unchanged.
+</Callout>
+
+<Callout type="note" title="Make the incident harder">
+The image fault is the clean demo. For the hackathon, inject something the three signals must <em>combine</em> to explain — a config change that makes the app log errors (logs), spike latency (traces), and breach an SLO (metrics) — and watch the writer reconcile all three into one root cause.
+</Callout>
+
+That's the capstone: a governed, observable, multi-agent SRE copilot — spun up repeatably, each agent provably bounded, driven from this page, and kept honest by a human on the only step that changes the world.
