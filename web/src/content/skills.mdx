@@ -214,20 +214,13 @@ The sandbox reaches the registry over the <strong>cluster network</strong> — C
 
 ### Authenticate the sandbox to your registry
 
-Verdaccio allows **anonymous read** but **authenticated publish** (`publish: $authenticated`). So before you can publish, create a publish user and write the `/sandbox/.npmrc` shown above for real. The user is created via the registry's own API **from inside the sandbox** (the host can't reach a `…svc.cluster.local` ClusterIP — the sandbox can, through its egress proxy). Run this once in the lab shell:
+Verdaccio allows **anonymous read** but **authenticated publish** (`publish: $authenticated`). So before you can publish, create a publish user and write the `/sandbox/.npmrc` shown above for real. The user is created via the registry's own API **from inside the sandbox** (the host can't reach a `…svc.cluster.local` ClusterIP — the sandbox can, through its egress proxy). Run this once in the lab shell — it's a **single line** (`openshell sandbox exec` rejects multi-line arguments):
 
 ```bash
-openshell sandbox exec -n shifty -- sh -c '
-  R=registry.openshell.svc.cluster.local:4873
-  # create the publish user (Verdaccio htpasswd) — 201 = created, 409 = already exists
-  node -e "const h=require(\"http\"),b=JSON.stringify({name:\"workshop\",password:\"wad26-skills\"});const q=h.request(\"http://$R/-/user/org.couchdb.user:workshop\",{method:\"PUT\",headers:{\"content-type\":\"application/json\",\"content-length\":Buffer.byteLength(b)}},r=>r.on(\"end\",()=>console.log(\"registry user:\",r.statusCode)));q.write(b);q.end();"
-  # route npm at the registry (default + @workshop scope) with the publish token
-  printf "registry=http://%s/\n@workshop:registry=http://%s/\n//%s/:_auth=%s\n" "$R" "$R" "$R" "$(printf workshop:wad26-skills | base64)" > /sandbox/.npmrc
-  echo "wrote /sandbox/.npmrc"
-'
+openshell sandbox exec -n shifty -- sh -c 'R=registry.openshell.svc.cluster.local:4873; node -e "const h=require(\"http\"),b=JSON.stringify({name:\"workshop\",password:\"wad26-skills\"});const q=h.request(\"http://$R/-/user/org.couchdb.user:workshop\",{method:\"PUT\",headers:{\"content-type\":\"application/json\",\"content-length\":Buffer.byteLength(b)}},r=>r.on(\"end\",()=>console.log(\"registry user:\",r.statusCode)));q.write(b);q.end();"; printf "registry=http://%s/\n@workshop:registry=http://%s/\n//%s/:_auth=%s\n" "$R" "$R" "$R" "$(printf workshop:wad26-skills | base64)" > /sandbox/.npmrc; echo "wrote /sandbox/.npmrc"'
 ```
 
-That makes the `/sandbox/.npmrc` above real: `@workshop/*` (and the default registry) now resolve to Verdaccio, and the `_auth` token lets you publish. (The scripted provisioner does this same step at agent-creation time; on the hands-on path you do it here.)
+Expect `registry user: 201` (or `409` if it already exists) and `wrote /sandbox/.npmrc`. That `node -e` creates the Verdaccio publish user (the registry's egress rule allows `node`/`npm` only, so we create it with node, not `curl`); the `printf` writes the `/sandbox/.npmrc` shown above — so `@workshop/*` (and the default registry) now resolve to Verdaccio and the `_auth` token lets you publish. (The scripted provisioner does this same step at agent-creation time; on the hands-on path you do it here.)
 
 ### Flow A — publish your own skill
 
