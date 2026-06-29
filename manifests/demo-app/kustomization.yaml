@@ -1,0 +1,15 @@
+# Generates the shop-app + payments ConfigMaps from their app.js (a hash suffix means editing
+# either rolls it out), then applies the apps + loadgen. Deploy: oc apply -k manifests/demo-app/
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: demo
+resources:
+  - loadgen.yaml
+  - payments.yaml
+configMapGenerator:
+  - name: shop-app-src
+    files:
+      - shop-app/app.js
+  - name: payments-src
+    files:
+      - payments/app.js

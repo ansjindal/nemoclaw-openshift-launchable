@@ -4,31 +4,53 @@ Now we put the fleet to work on a real incident — one you cause on purpose —
 
 A fleet of specialists isn't useful until something *combines* them. That's a small **orchestrator** built into this page — no separate app. When you hit **Investigate**, it:
 
-1. **Plans** — calls the model over the completions API (`/v1/chat/completions`) to break the incident into steps and route each to one agent (`logs`, `metrics`, `traces`, `writer`).
-2. **Dispatches** — hands each step to that agent with `openclaw agent --local`, so the work runs **inside the agent's seal**, with its skill and its single-backend egress.
-3. **Synthesizes** — hands all the findings to a dedicated **writer agent** (no egress of its own) that combines them into a root cause **and a recommended fix**.
+1. **Dispatches** — hands each specialist a prescribed diagnostic probe for its backend and runs it with `openclaw agent --local`, so the work happens **inside the agent's seal**, under its single-backend egress.
+2. **Reads, for real** — each agent runs its **`cluster-telemetry` skill** to query its own backend (`logs`→Loki, `metrics`→Prometheus, `traces`→Tempo, `events`→Loki) and interprets what comes back — the error rate, the error log lines, the failing span, the (absent) events.
+3. **Concludes** — hands all the findings to a dedicated **analyst agent** (no egress, no tools) that reasons over them into a root cause **and a recommended remediation** — derived from the live telemetry (error rate + error logs + failing trace span, with no infra events ruling out a scheduling cause), not guessed.
 
-You see **every agent's findings** *and* the writer agent's combined verdict — so the reasoning is transparent, not a black box. The conductor never touches a backend itself; the agents do the governed reads. Watch the [Live](/learn/live) **Policy decisions** tab while it runs — three agents, three different allowed hosts, every call logged.
+You see **every agent's findings** *and* the analyst's concluded verdict — transparent, not a black box. The conductor never touches a backend itself; the agents do the governed reads. Watch the [Live](/learn/live) **Policy decisions** tab while it runs — each agent, its one allowed host, every call logged.
+
+<Callout type="note" title="Why a skill, not web_fetch">
+OpenClaw's built-in <code>web_fetch</code> tool refuses private/internal/cluster addresses (an SSRF guard), so a sealed agent can't use it to read Loki/Prometheus/Tempo on <code>*.svc.cluster.local</code>. The <strong>cluster-telemetry skill</strong> shells out to <code>curl</code> instead — so the call is still governed by the agent's single-backend egress policy, and the SSRF protection stays on everywhere else. The agent runs <em>one</em> prescribed query (free-form exploration would overflow the model's context), then interprets the result in its own words.
+</Callout>
+
+## The demo, deployed
+
+<DemoArchitecture />
+
+A continuous **loadgen** drives the instrumented **shop-app**, which on every checkout makes a real HTTP call to its **`payments`** dependency — and emits all three signals into the cluster's observability stack: **traces** → Tempo (OTLP), **metrics** → Prometheus (a ServiceMonitor scrapes `/metrics`), and **logs** → Loki (Grafana Alloy ships its stdout). A **kubernetes-event-exporter** feeds k8s events into Loki too. The sealed fleet reads those backends — so when `payments` goes down, it shows up across every signal at once, and the live traffic numbers (below) move in real time.
 
 ## The loop — break, investigate, fix
 
 <IncidentLab />
 
-1. **Deploy** stands up `shop` (2 replicas). The badge goes **healthy**.
-2. **Inject fault** ships a bad image tag. It's a *rolling* update, so the old pods keep serving while the new ReplicaSet fails to pull — a realistic **silently-stuck deploy**. The badge flips to **unhealthy**.
-3. **Investigate** runs the fleet. Only now — *after* a diagnosis — does a fix appear: the agents state the root cause and **recommend the change**.
-4. **Your fix** is pre-filled with the fleet's recommendation. Approve it as-is, or adjust the target image — and the UI flags when **your fix differs from what the agents suggested**. Applying it is the one step a human owns.
+1. **Deploy** stands up `shop-app` (a small instrumented service) plus a **loadgen** that drives it continuously — so the **live traffic numbers** (success/s, errors/s, error rate) and the logs/metrics/traces are always real.
+2. **Inject fault** takes a **real dependency down**: `kubectl scale deploy/payments --replicas=0`. shop-app's checkout makes a real HTTP call to `payments` on every request — with payments gone, those calls genuinely fail (connection refused) and checkout returns **503**. Nothing artificial; watch the payments pod terminate and the **error rate climb to 100%**.
+3. **Investigate** runs the fleet against the live telemetry: `metrics` sees the 5xx spike, `logs` sees the `checkout failed: payment call failed…` lines, `traces` sees the failing `charge-payment` span, and **`events` sees the smoking gun** — `payments` was scaled to 0 right as the errors began. The analyst asks *"what changed?"* and pins it on the dependency outage.
+4. **Your fix** is the human-approved remediation — a **real fix**: `kubectl scale deploy/payments --replicas=1`, bringing the dependency back. Watch the error rate fall to 0. Applying it is the one step a human owns.
+
+<Callout type="note" title="What “Inject fault” actually does — a real dependency outage">
+No simulated flag. <strong>Inject fault</strong> runs <code>kubectl scale deploy/payments --replicas=0</code> —
+it genuinely takes shop-app's <code>payments</code> dependency offline. shop-app calls
+<code>payments</code> over HTTP on every checkout, so with it gone those calls fail with a real
+<strong>connection refused</strong> and checkout returns 503. The failure <em>emerges</em> from a
+real broken dependency — exactly like a real outage. The fleet sees it in metrics (5xx), logs
+("payment call failed…"), traces (failing <code>charge-payment</code> span), and decisively in
+<strong>events</strong> (<code>payments scaled to 0</code>). <strong>Apply remediation</strong> is
+the real fix: <code>kubectl scale deploy/payments --replicas=1</code>. A real problem, diagnosed
+from real telemetry, fixed by a real change.
+</Callout>
 
 ## Agents recommend; humans decide; GitOps delivers
 
 The agents never touch the cluster — they're sealed from the Kubernetes API and only *read* telemetry. They produce a **recommendation**; the human approves (and may change) the **actual** change. That gap between "what the fleet suggested" and "what you applied" is the human-in-the-loop, made explicit and on the record.
 
 <Callout type="rh" title="Manual here, ArgoCD in production">
-In this lab the approved fix is a <code>kubectl</code> change behind a confirm. In production it's a <strong>git commit</strong> a reviewer approves and <strong>ArgoCD</strong> syncs — same shape (fleet recommends → human approves → delivered), just GitOps delivery. The fleet's job, and the human gate, are identical.
+In this lab the approved remediation clears the injected fault behind a confirm. In production it's a <strong>git revert</strong> a reviewer approves and <strong>ArgoCD</strong> syncs — same shape (fleet recommends → human approves → delivered), just GitOps delivery. The fleet's job, and the human gate, are identical.
 </Callout>
 
 <Callout type="note" title="Make the incident harder">
-The image fault is the clean demo. For the hackathon, inject something the three signals must <em>combine</em> to explain — a config change that makes the app log errors (logs), spike latency (traces), and breach an SLO (metrics) — and watch the writer reconcile all three, then recommend the fix you approve.
+The payment-503 fault is the clean demo (and there's a <code>latency</code> fault too). For the hackathon, inject something the four signals must <em>combine</em> to explain — slow spans in <code>traces</code>, an SLO breach in <code>metrics</code>, errors in <code>logs</code> — and watch the analyst reconcile all four, then recommend the remediation you approve.
 </Callout>
 
 That's the capstone: a governed, observable SRE copilot — spun up repeatably, each agent provably bounded, investigating from this page, and kept honest by a human on the only step that changes the world.

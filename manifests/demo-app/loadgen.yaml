@@ -1,0 +1,103 @@
+# shop-app (instrumented demo service) + loadgen. The app source lives in shop-app/app.js and is
+# mounted via the `shop-app-src` ConfigMap that kustomization.yaml generates from that file —
+# edit app.js, re-apply with `oc apply -k manifests/demo-app/`, and the hash change rolls it out.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shop-app
+  namespace: demo
+  labels: { app: shop-app }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: shop-app }
+  template:
+    metadata:
+      labels: { app: shop-app }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "8080", prometheus.io/path: "/metrics" }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: shop-app
+          image: node:22-alpine
+          command: ["node", "/app/app.js"]
+          env:
+            - { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: "http://tempo.monitoring.svc.cluster.local:4318" }
+            - { name: OTEL_SERVICE_NAME, value: "shop" }
+          ports:
+            - { name: http, containerPort: 8080 }
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 2, periodSeconds: 5 }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 20m, memory: 48Mi }
+            limits: { cpu: 200m, memory: 128Mi }
+          volumeMounts:
+            - { name: src, mountPath: /app }
+      volumes:
+        - name: src
+          configMap: { name: shop-app-src }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shop-app
+  namespace: demo
+  labels: { app: shop-app }
+spec:
+  selector: { app: shop-app }
+  ports:
+    - { name: http, port: 8080, targetPort: 8080 }
+---
+# Prometheus scrapes shop-app's /metrics (the kube-prometheus-stack selects all ServiceMonitors).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: shop-app
+  namespace: demo
+  labels: { app: shop-app, release: kps }
+spec:
+  selector:
+    matchLabels: { app: shop-app }
+  endpoints:
+    - { port: http, path: /metrics, interval: 15s }
+---
+# continuously drives /checkout → a live stream of real traces / metrics / logs
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgen
+  namespace: demo
+  labels: { app: loadgen }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: loadgen }
+  template:
+    metadata:
+      labels: { app: loadgen }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: loadgen
+          image: curlimages/curl:8.11.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              while true; do
+                curl -s -o /dev/null "http://shop-app.demo.svc.cluster.local:8080/checkout?customer=$(( (RANDOM % 4) + 1 ))";
+                sleep 1;
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { cpu: 5m, memory: 16Mi }
+            limits: { cpu: 50m, memory: 64Mi }
