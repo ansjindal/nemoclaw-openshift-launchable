@@ -1,5 +1,13 @@
-# name : backend (host:port the agent may reach, or "-") : skill (a registry skill, or "-")
-logs    : loki.monitoring.svc.cluster.local:3100                                 : @workshop/loki-query
-metrics : kps-kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090 : @workshop/promql
-traces  : tempo.monitoring.svc.cluster.local:3200                                : @workshop/tempo-search
-writer  : -                                                                      : -
+# The SRE copilot fleet — one agent per line, WHITESPACE-separated columns:
+#
+#   name      backend(host:port the agent may reach, or "-")                   skill(a @scope/name registry skill, or "-")
+#
+# - name    : the agent (also the fleet-roles/<name>/ folder with its IDENTITY.md + SOUL.md)
+# - backend : the ONE host:port this agent's policy allows (its tool); "-" = no egress
+# - skill   : optional registry skill to install. "-" = none (the agent queries via its SOUL,
+#             using node/curl). Publish a skill via Part V, then put @workshop/<name> here.
+#
+logs      loki.monitoring.svc.cluster.local:3100                              -
+metrics   kps-kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090   -
+traces    tempo.monitoring.svc.cluster.local:3200                             -
+writer    -                                                                   -
