@@ -27,12 +27,6 @@ The agents never touch the cluster — they're sealed from the Kubernetes API an
 In this lab the approved fix is a <code>kubectl</code> change behind a confirm. In production it's a <strong>git commit</strong> a reviewer approves and <strong>ArgoCD</strong> syncs — same shape (fleet recommends → human approves → delivered), just GitOps delivery. The fleet's job, and the human gate, are identical.
 </Callout>
 
-## Drive it with any prompt
-
-The same conductor takes any task, not just this incident — point it at your own question and watch it route across the fleet:
-
-<Orchestrator />
-
 <Callout type="note" title="Make the incident harder">
 The image fault is the clean demo. For the hackathon, inject something the three signals must <em>combine</em> to explain — a config change that makes the app log errors (logs), spike latency (traces), and breach an SLO (metrics) — and watch the writer reconcile all three, then recommend the fix you approve.
 </Callout>

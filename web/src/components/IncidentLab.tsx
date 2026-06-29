@@ -5,7 +5,8 @@ import { streamOrchestrate } from "@/lib/orchestrateStream";
 
 type Health = { exists?: boolean; ready?: string; healthy?: boolean; pods?: string; current?: string; good?: string };
 type Invest = { ok?: boolean; results?: { agent: string; out: string }[]; answer?: string; error?: string; synthesizedBy?: string };
-type TL = { agent: string; status: "queued" | "running" | "done"; ms?: number };
+type TL = { agent: string; status: "queued" | "running" | "done"; ms?: number; out?: string };
+const BACKEND: Record<string, string> = { logs: "Loki", metrics: "Prometheus", traces: "Tempo", writer: "(no egress)" };
 
 // Part VI capstone — the full incident loop in one place: deploy a sample app, inject a
 // fault, watch it go unhealthy, let the FLEET investigate and RECOMMEND a fix, then the
@@ -46,7 +47,7 @@ export function IncidentLab() {
       await streamOrchestrate(task, (e) => {
         if (e.type === "plan") setTimeline((e.steps || []).map((s) => ({ agent: s.agent, status: "queued" })));
         else if (e.type === "step" && e.status === "start") setTimeline((tl) => tl.map((x) => x.agent === e.agent ? { ...x, status: "running" } : x));
-        else if (e.type === "step" && e.status === "done") { results.push({ agent: e.agent!, out: e.out || "" }); setTimeline((tl) => tl.map((x) => x.agent === e.agent ? { ...x, status: "done", ms: e.ms } : x)); }
+        else if (e.type === "step" && e.status === "done") { results.push({ agent: e.agent!, out: e.out || "" }); setTimeline((tl) => tl.map((x) => x.agent === e.agent ? { ...x, status: "done", ms: e.ms, out: e.out } : x)); }
         else if (e.type === "writer") setTimeline((tl) => [...tl, { agent: "writer", status: "running" }]);
         else if (e.type === "answer") {
           setTimeline((tl) => tl.map((x) => x.agent === "writer" ? { ...x, status: "done", ms: e.ms } : x));
@@ -119,19 +120,21 @@ export function IncidentLab() {
         <Btn a="investigate" on={investigate} icon={<Stethoscope size={14} />} label="3 · Investigate (fleet)" disabled={h?.healthy !== false} />
       </div>
 
-      {/* live timeline — each agent as it starts/finishes */}
+      {/* animated investigation — each agent pulses as it's invoked, then reveals its findings */}
       {timeline.length > 0 && (
-        <div className="mt-3 rounded-lg border border-[var(--color-line)] p-2">
-          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">TIMELINE</div>
-          <div className="mt-1 space-y-0.5 text-xs">
-            {timeline.map((x) => (
-              <div key={x.agent} className="flex items-center gap-2">
-                {x.status === "done" ? <CheckCircle2 size={12} className="text-[var(--color-nv-bright)]" /> : <Loader2 size={12} className="animate-spin text-[var(--color-fg-mut)]" />}
-                <span className="font-semibold">{x.agent === "writer" ? "✍️ writer (synthesize)" : `🦞 ${x.agent}`}</span>
-                <span className="text-[var(--color-fg-mut)]">{x.status === "done" ? `${((x.ms || 0) / 1000).toFixed(1)}s` : x.status}</span>
+        <div className="mt-4 space-y-2">
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">INVESTIGATION — agents invoked in parallel</div>
+          {timeline.map((x) => (
+            <div key={x.agent} className={`rounded-lg border p-2 transition-colors ${x.status !== "done" ? "border-[var(--color-nv-dim)] animate-pulse" : "border-[var(--color-line)]"}`}>
+              <div className="flex items-center gap-2 text-xs">
+                {x.status === "done" ? <CheckCircle2 size={13} className="text-[var(--color-nv-bright)]" /> : <Loader2 size={13} className="animate-spin text-[var(--color-nv-bright)]" />}
+                <span className="font-semibold">{x.agent === "writer" ? "✍️ writer" : `🦞 ${x.agent}`}</span>
+                <span className="text-[var(--color-fg-mut)]">· {BACKEND[x.agent] || ""}</span>
+                <span className="ml-auto text-[var(--color-fg-mut)]">{x.status === "done" ? `${((x.ms || 0) / 1000).toFixed(1)}s` : (x.agent === "writer" ? "combining findings…" : `querying ${BACKEND[x.agent] || "backend"}…`)}</span>
               </div>
-            ))}
-          </div>
+              {x.status === "done" && x.out && x.agent !== "writer" && <pre className="mt-1 whitespace-pre-wrap break-words text-xs text-[var(--color-fg-dim)]">{x.out}</pre>}
+            </div>
+          ))}
         </div>
       )}
 
@@ -139,13 +142,6 @@ export function IncidentLab() {
 
       {inv?.ok && (
         <div className="mt-4 space-y-2 text-sm">
-          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">FINDINGS — each agent, from its own backend</div>
-          {inv.results?.map((r, i) => (
-            <div key={i} className="rounded-lg border border-[var(--color-line)] p-2">
-              <div className="text-xs font-semibold text-[var(--color-nv-bright)]">🦞 {r.agent}</div>
-              <pre className="mt-1 whitespace-pre-wrap break-words text-xs text-[var(--color-fg-dim)]">{r.out}</pre>
-            </div>
-          ))}
           {inv.answer && (
             <div className="rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-bg)] p-3">
               <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{inv.synthesizedBy === "writer" ? "🦞 WRITER AGENT — combined root cause & recommended fix" : "ROOT CAUSE & RECOMMENDED FIX"}</div>
