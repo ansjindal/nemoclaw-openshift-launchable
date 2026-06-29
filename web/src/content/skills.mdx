@@ -212,9 +212,26 @@ network_policies:
 The sandbox reaches the registry over the <strong>cluster network</strong> — CoreDNS resolves <code>…svc.cluster.local</code>, and the request still passes through the OpenShell egress proxy. So the install is policy-gated and lands on the <a href="/learn/live">Live</a> <strong>Policy decisions</strong> tab as <code>policy:in-cluster-registry</code>, exactly like any internet egress. Scoped names arrive URL-encoded (<code>@workshop%2Fregtest</code>) — which is why this endpoint also needs <code>allow_encoded_slash</code>.
 </Callout>
 
+### Authenticate the sandbox to your registry
+
+Verdaccio allows **anonymous read** but **authenticated publish** (`publish: $authenticated`). So before you can publish, create a publish user and write the `/sandbox/.npmrc` shown above for real. The user is created via the registry's own API **from inside the sandbox** (the host can't reach a `…svc.cluster.local` ClusterIP — the sandbox can, through its egress proxy). Run this once in the lab shell:
+
+```bash
+openshell sandbox exec -n shifty -- sh -c '
+  R=registry.openshell.svc.cluster.local:4873
+  # create the publish user (Verdaccio htpasswd) — 201 = created, 409 = already exists
+  node -e "const h=require(\"http\"),b=JSON.stringify({name:\"workshop\",password:\"wad26-skills\"});const q=h.request(\"http://$R/-/user/org.couchdb.user:workshop\",{method:\"PUT\",headers:{\"content-type\":\"application/json\",\"content-length\":Buffer.byteLength(b)}},r=>r.on(\"end\",()=>console.log(\"registry user:\",r.statusCode)));q.write(b);q.end();"
+  # route npm at the registry (default + @workshop scope) with the publish token
+  printf "registry=http://%s/\n@workshop:registry=http://%s/\n//%s/:_auth=%s\n" "$R" "$R" "$R" "$(printf workshop:wad26-skills | base64)" > /sandbox/.npmrc
+  echo "wrote /sandbox/.npmrc"
+'
+```
+
+That makes the `/sandbox/.npmrc` above real: `@workshop/*` (and the default registry) now resolve to Verdaccio, and the `_auth` token lets you publish. (The scripted provisioner does this same step at agent-creation time; on the hands-on path you do it here.)
+
 ### Flow A — publish your own skill
 
-You built and tested a skill in step 5. Give it a scoped name and publish it (the sandbox is pre-authenticated with the workshop token from `.npmrc`):
+You built and tested a skill in step 5. Give it a scoped name and publish it (the sandbox is now authenticated from the step above):
 
 ```bash
 openshell sandbox exec -n shifty -- sh -c 'cd /sandbox/myskill && npm pkg set name=@workshop/myskill && npm pkg delete private && npm publish'

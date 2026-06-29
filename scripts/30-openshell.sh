@@ -126,3 +126,21 @@ spec:
         command: ["sh", "-c", "exit 0"]
 YAML
 fi
+
+# --- private skill registry (Verdaccio) — cluster-level, deployed once ---
+# The agents' single governed skill+dep source: the sandbox egress policy
+# (policies/openclaw-sandbox.yaml) allows ONLY this Service, and Verdaccio uplinks npmjs +
+# caches transitive deps so sealed agents never reach the public internet directly. It's a
+# shared cluster workload (one Deployment+Service+PVC for every agent and the skills lesson),
+# so it lives here in the cluster phase — not in per-agent provisioning (phase 45).
+REGISTRY_MANIFEST="$REPO_ROOT/manifests/openclaw/registry.yaml"
+if [[ -f "$REGISTRY_MANIFEST" ]]; then
+  log "Deploying the private skill registry (Verdaccio) from $REGISTRY_MANIFEST"
+  oc apply -f "$REGISTRY_MANIFEST" >/tmp/registry-apply.log 2>&1 \
+    || warn "registry apply failed — see /tmp/registry-apply.log"
+  oc -n "$NS" rollout status deploy/registry --timeout=150s >/dev/null 2>&1 \
+    && log "Skill registry Ready at registry.${NS}.svc.cluster.local:4873" \
+    || warn "registry not Ready yet — skill installs from it may fail until it settles."
+else
+  warn "No registry manifest at $REGISTRY_MANIFEST — agents will have no in-cluster skill source."
+fi

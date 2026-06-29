@@ -66,6 +66,19 @@ export function Approvals() {
     } finally { setBusy(""); }
   }, [load]);
 
+  // One-time: grant the operator admin rights so it can approve device pairings. Fixes the
+  // "scope upgrade pending" / "device is asking for more scopes than currently approved"
+  // deadlock — runs the same grant the scripted provisioner does, via the host-privileged
+  // /api/devices route (so it's not subject to the operator-scope deadlock itself).
+  const enableApprovals = useCallback(async () => {
+    setBusy("bootstrap"); setMsg("Enabling approvals (granting the operator admin + restarting the gateway)…");
+    try {
+      const j = await fetch("/api/devices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "bootstrap-admin" }) }).then((r) => r.json());
+      setMsg(j.ok ? (j.output || "approvals enabled ✓") : `Error: ${j.error || "failed"}`);
+      await load();
+    } finally { setBusy(""); }
+  }, [load]);
+
   useEffect(() => { load(); const t = setInterval(load, 5000); return () => clearInterval(t); }, [load]);
 
   const pendingChunks = chunks.filter((c) => (c.status || "pending") === "pending");
@@ -127,7 +140,14 @@ export function Approvals() {
       )}
 
       {/* ---- device pairing approvals ---- */}
-      <h2 className="mt-6 flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]"><UserPlus size={15} className="text-[var(--color-fg-mut)]" /> Device approvals <span className="text-[11px] font-normal text-[var(--color-fg-mut)]">— browsers / CLIs asking to pair</span></h2>
+      <div className="mt-6 flex items-center gap-2">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--color-fg)]"><UserPlus size={15} className="text-[var(--color-fg-mut)]" /> Device approvals <span className="text-[11px] font-normal text-[var(--color-fg-mut)]">— browsers / CLIs asking to pair</span></h2>
+        <button disabled={!!busy} onClick={enableApprovals}
+          title="One-time: grant the operator admin rights so it can approve pairings. Fixes 'scope upgrade pending approval' on a fresh gateway."
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-[var(--color-line-2)] px-2.5 py-1 text-[11px] text-[var(--color-fg-mut)] transition hover:text-[var(--color-fg)] disabled:opacity-50">
+          <ShieldQuestion size={12} /> Enable approvals
+        </button>
+      </div>
       {devices.length === 0 ? (
         <div className="mt-2 rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-4 text-[13px] text-[var(--color-fg-mut)]">
           None. When a new browser or CLI tries to connect to the agent&apos;s Control UI, its pairing request appears here.

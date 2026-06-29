@@ -67,9 +67,54 @@ export async function GET() {
 export async function POST(req: Request) {
   const body = await req.json().catch(() => ({} as Record<string, unknown>));
   const action = body?.action;
+
+  // One-time bootstrap: grant the operator device the admin scopes it needs to approve
+  // pairings. A password-paired operator starts with only `operator.pairing` — it can ask
+  // to pair but can't APPROVE anyone, so a fresh gateway hits a "who approves the approver"
+  // deadlock (devices approve → "scope upgrade pending"). We break it the only way possible:
+  // through `openshell sandbox exec` (HOST / OpenShell privilege, NOT an OpenClaw operator
+  // scope, so it's not subject to that deadlock) we pair the local operator, grant the admin
+  // scopes directly in the gateway's device table, and restart the in-sandbox gateway so it
+  // reloads them. Idempotent + re-runnable. This is what the "Enable approvals" button calls.
+  if (action === "bootstrap-admin") {
+    if (!validName(AGENT)) return NextResponse.json({ ok: false, error: "bad agent" }, { status: 400 });
+    const pw = gwPassword();
+    const url = `ws://127.0.0.1:${UI_PORT}`;
+    const grantJs =
+      'const fs=require("fs");const dir="/sandbox/.openclaw/devices";const p=dir+"/paired.json";' +
+      'if(!fs.existsSync(p)){console.log("no-paired");process.exit(0);}' +
+      'const d=JSON.parse(fs.readFileSync(p,"utf8"));if(!Object.keys(d).length){console.log("no-paired");process.exit(0);}' +
+      'const want=["operator.pairing","operator.admin","operator.approvals","operator.read","operator.write"];' +
+      'for(const k in d){d[k].scopes=want;d[k].approvedScopes=want;if(d[k].tokens&&d[k].tokens.operator)d[k].tokens.operator.scopes=want;}' +
+      'fs.writeFileSync(p,JSON.stringify(d));try{fs.writeFileSync(dir+"/pending.json","{}")}catch(e){}' +
+      'console.log("admin-bootstrapped "+Object.keys(d).length);';
+    const b64 = Buffer.from(grantJs, "utf8").toString("base64");
+    try {
+      // pair the local operator (async) + grant admin — retry until a device exists to grant
+      let granted = false;
+      for (let i = 0; i < 4 && !granted; i++) {
+        await openshell(["sandbox", "exec", "-n", AGENT, "--", "sh", "-c",
+          `openclaw devices list --url ${url} --password '${pw}' >/dev/null 2>&1 || true`], 12000).catch(() => {});
+        const r = await openshell(["sandbox", "exec", "-n", AGENT, "--", "sh", "-c",
+          `echo ${b64} | base64 -d | node`], 12000).catch(() => ({ code: 1, out: "", err: "" }));
+        if (/admin-bootstrapped/.test(r.out)) granted = true;
+      }
+      if (!granted)
+        return NextResponse.json({ ok: false, action, error: "No operator device paired yet — open the agent's Control UI once (so a device tries to pair), then click Enable approvals again." }, { status: 409 });
+      // restart the in-sandbox gateway so it reloads the new scopes
+      await openshell(["sandbox", "exec", "-n", AGENT, "--", "sh", "-c",
+        `cd /sandbox && [ -f gateway.pid ] && kill "$(cat gateway.pid)" 2>/dev/null; sleep 2; ` +
+        `setsid nohup openclaw gateway run --port ${UI_PORT} --bind lan --auth password --password '${pw}' --allow-unconfigured >/sandbox/gateway.log 2>&1 </dev/null & ` +
+        `echo $! >/sandbox/gateway.pid; sleep 6; grep -E 'listening on ws' /sandbox/gateway.log | tail -1`], 25000).catch(() => {});
+      return NextResponse.json({ ok: true, action, output: "Operator granted admin — approvals enabled. Reload the Control UI to reconnect." });
+    } catch (e) {
+      return NextResponse.json({ ok: false, action, error: e instanceof Error ? e.message : String(e) }, { status: 502 });
+    }
+  }
+
   const requestId = body?.requestId;
   if (action !== "approve" && action !== "reject")
-    return NextResponse.json({ ok: false, error: "action must be approve|reject" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "action must be approve|reject|bootstrap-admin" }, { status: 400 });
   if (!validReqId(requestId))
     return NextResponse.json({ ok: false, error: "invalid requestId" }, { status: 400 });
   try {

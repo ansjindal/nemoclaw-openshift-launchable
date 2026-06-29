@@ -53,22 +53,10 @@ openshell gateway add "$GW_URL" --local --name cluster >/dev/null 2>&1 || true
 openshell gateway select cluster >/dev/null 2>&1 || true
 openshell status >/dev/null 2>&1 || warn "Gateway not answering at ${GW_URL} — is phase 30/50 done?"
 
-# --- private skill registry (Verdaccio) — the agent's single skill+dep source ---
-# Deploy it early so it's Ready by the time we seed the sandbox's npm config. The sandbox
-# egress policy (policies/openclaw-sandbox.yaml) allows ONLY this Service; Verdaccio uplinks
-# npmjs and caches transitive deps, so the sealed agent never reaches the public internet.
-REGISTRY_MANIFEST="$REPO_ROOT/manifests/openclaw/registry.yaml"
+# --- private skill registry (Verdaccio) — deployed cluster-level in phase 30 ---
+# It's a shared, once-per-cluster Deployment (not per-agent), so its deploy lives in phase 30.
+# Here we only need its in-cluster address to point this sandbox's npm at it (below).
 REGISTRY_HOST="registry.${NS}.svc.cluster.local:4873"
-if [[ -f "$REGISTRY_MANIFEST" ]]; then
-  log "Deploying the private skill registry (Verdaccio) from $REGISTRY_MANIFEST"
-  oc apply -f "$REGISTRY_MANIFEST" >/tmp/registry-apply.log 2>&1 \
-    || warn "registry apply failed — see /tmp/registry-apply.log"
-  oc -n "$NS" rollout status deploy/registry --timeout=150s >/dev/null 2>&1 \
-    && log "Skill registry Ready at ${REGISTRY_HOST}" \
-    || warn "registry not Ready yet — skill installs from it may fail until it settles."
-else
-  warn "No registry manifest at $REGISTRY_MANIFEST — the agent will have no in-cluster skill source."
-fi
 
 # --- configure the privacy router: gateway-side provider + inference route ---
 # The real endpoint + key are held by the gateway, NOT the agent. `inference.local` then
@@ -107,14 +95,19 @@ sleep 2
 openshell sandbox create --name "$AGENT" --no-tty "${POLICY_ARG[@]}" \
   --from "$SANDBOX_IMAGE" -- true >/tmp/openclaw-create.log 2>&1 &
 log "Waiting for the sandbox supervisor to finish bootstrap (gateway phase Ready)"
+# Poll the real readiness condition (a live `exec` round-trip) up to a generous, configurable
+# deadline — NOT a short fixed count. A cold first boot (image pull + supervisor) can take
+# several minutes and would otherwise blow past a 240s cap, silently skipping the steps below.
 ready=false
-for i in $(seq 1 48); do
-  sleep 5
+READY_TIMEOUT="${OPENCLAW_READY_TIMEOUT:-900}"
+deadline=$(( SECONDS + READY_TIMEOUT ))
+while (( SECONDS < deadline )); do
   if openshell sandbox exec -n "$AGENT" -- true >/dev/null 2>&1; then
-    ready=true; log "Sandbox exec-ready after $((i*5))s"; break
+    ready=true; log "Sandbox exec-ready after ${SECONDS}s"; break
   fi
+  sleep 5
 done
-[[ "$ready" == true ]] || { warn "Sandbox not ready — create log:"; tail -8 /tmp/openclaw-create.log; }
+[[ "$ready" == true ]] || { warn "Sandbox not ready within ${READY_TIMEOUT}s — create log:"; tail -8 /tmp/openclaw-create.log; }
 
 # --- point the sandbox's npm at the private registry + provision a publish user ---
 # Skills are npm packages, so this is plain npm config: the @workshop scope AND the default

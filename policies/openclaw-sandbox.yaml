@@ -71,6 +71,29 @@ network_policies:
       - { path: /usr/bin/npm }
       - { path: /usr/local/bin/npm }
 
+  # --- ClawHub plugin dependency installs (public npm registry, direct) ---
+  # `openclaw plugins install clawhub:<plugin>` downloads the plugin from ClawHub, then runs an
+  # npm install for the plugin's OWN dependencies — and that step talks to registry.npmjs.org
+  # DIRECTLY (it does not route through Verdaccio like @workshop skills do). npm requests scoped
+  # deps as /@scope%2Fname, so — exactly like the in-cluster registry above — this endpoint needs
+  # protocol: rest + allow_encoded_slash: true (the %2F is NOT settable via CLI --add-endpoint,
+  # so it must live here).
+  #
+  # POSTURE NOTE: this is a deliberate relaxation of the "Verdaccio is the ONLY skill/dep egress"
+  # chokepoint documented above — it gives the agent a direct line to the public npm registry for
+  # ClawHub-plugin deps. Keep it only if you want ClawHub plugin installs to work out of the box;
+  # delete this block to restore the strict single-source posture (then ClawHub plugins must be
+  # mirrored into Verdaccio instead).
+  npm-registry:
+    name: npm-registry
+    endpoints:
+      - { host: registry.npmjs.org, port: 443, access: full, protocol: rest, allow_encoded_slash: true }
+    binaries:
+      - { path: /usr/bin/node }
+      - { path: /usr/local/bin/node }
+      - { path: /usr/bin/npm }
+      - { path: /usr/local/bin/npm }
+
   # --- web search (DuckDuckGo, key-free) — the agent scrapes DuckDuckGo's non-JS
   #     search pages, so allow those hosts for node. Enabled via openclaw config
   #     tools.web.search.provider=duckduckgo. ---
