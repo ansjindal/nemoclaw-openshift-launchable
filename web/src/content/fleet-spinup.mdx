@@ -32,13 +32,33 @@ Bring the fleet up (this creates the sandboxes, scopes each policy, and stages e
 ./scripts/fleet.sh up fleet.txt
 ```
 
-Then watch them reach Ready:
+Then watch them reach Ready (`status` wraps `openshell sandbox list`):
 
 ```bash
 ./scripts/fleet.sh status
 ```
 
-When you're **done with the workshop** and want to remove them, run this — *don't* run it now, it tears the fleet down:
+### Look at what's running
+
+See the sandbox **pods** on the cluster (each agent is a sealed pod):
+
+```bash
+oc get pods -n openshell
+```
+
+Inspect any one agent's **effective policy** — proof its egress is scoped to just its tool:
+
+```bash
+openshell policy get metrics --full -o json
+```
+
+And tail an agent's **audit trail** — every egress decision it made, allowed or denied:
+
+```bash
+openshell logs metrics --source sandbox
+```
+
+When you're **done with the workshop** and want to remove the fleet, run this — *don't* run it now, it tears everything down:
 
 ```bash-ref
 ./scripts/fleet.sh down fleet.txt

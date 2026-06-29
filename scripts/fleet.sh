@@ -47,46 +47,57 @@ up() {
   local REG="registry.openshell.svc.cluster.local:4873"
   # Whitespace-separated columns:  name   backend(host:port|-)   skill(@scope/name|-)
   # (NOT colon-separated — backend hosts contain a colon, e.g. loki…:3100.)
-  # Read the spec on FD 3 — the openshell commands below read stdin, and would otherwise
-  # eat the rest of the spec file (so only the first agent would be created).
+  local -a NM BK SK
+  # Read the spec on FD 3 (the openshell commands below read stdin and would otherwise
+  # eat the rest of the file). Collect the fleet, then create CONCURRENTLY so the agents
+  # bootstrap in parallel (~1 min total) instead of one-after-another (~1 min each).
   while read -r name backend skill <&3; do
     [[ -z "$name" || "$name" == \#* ]] && continue
-    backend="${backend:--}"; skill="${skill:--}"
-    echo "▶ ${name}  (egress=${backend}  skill=${skill})"
-    local pf="/tmp/fleet-${name}.policy.yaml"; policy_for "$backend" > "$pf"
-    openshell sandbox delete "$name" </dev/null >/dev/null 2>&1 || true; sleep 2
-    echo "   creating sandbox from ${IMAGE}…"
-    openshell sandbox create --name "$name" --policy "$pf" --from "$IMAGE" --no-tty -- true </dev/null >/tmp/fleet-${name}.log 2>&1 &
-    local ready=false
-    for i in $(seq 1 60); do
+    NM+=("$name"); BK+=("${backend:--}"); SK+=("${skill:--}")
+  done 3< "$spec"
+  echo "Bringing up ${#NM[@]} agents from ${IMAGE} — in parallel:"
+
+  local i name
+  for i in "${!NM[@]}"; do
+    name="${NM[$i]}"
+    echo "▶ ${name}  (egress=${BK[$i]}  skill=${SK[$i]})"
+    policy_for "${BK[$i]}" > "/tmp/fleet-${name}.policy.yaml"
+    openshell sandbox delete "$name" </dev/null >/dev/null 2>&1 || true
+  done
+  sleep 2
+  for i in "${!NM[@]}"; do
+    name="${NM[$i]}"
+    openshell sandbox create --name "$name" --policy "/tmp/fleet-${name}.policy.yaml" --from "$IMAGE" --no-tty -- true </dev/null >"/tmp/fleet-${name}.log" 2>&1 &
+  done
+  echo "   …creating; waiting for each to reach Ready (they bootstrap concurrently)…"
+
+  for i in "${!NM[@]}"; do
+    name="${NM[$i]}"
+    local ready=false j
+    for j in $(seq 1 72); do
+      openshell sandbox exec -n "$name" -- true </dev/null >/dev/null 2>&1 && { ready=true; break; }
       sleep 5
-      if openshell sandbox exec -n "$name" -- true </dev/null >/dev/null 2>&1; then ready=true; echo "   ✓ ready after $((i*5))s"; break; fi
-      [[ $((i % 6)) -eq 0 ]] && echo "   …waiting for ${name} ($((i*5))s)"
     done
     if [[ "$ready" != true ]]; then
-      echo "   ✗ ${name} not ready after 300s — create log:"; tail -8 "/tmp/fleet-${name}.log" 2>/dev/null | grep -viE 'UNDICI|trace-warn' | sed 's/^/       /'
+      echo "   ✗ ${name} not ready — create log:"; tail -6 "/tmp/fleet-${name}.log" 2>/dev/null | grep -viE 'UNDICI|trace-warn' | sed 's/^/       /'
       continue
     fi
-    # stage the agent's persona (IDENTITY.md / SOUL.md) from fleet-roles/<name> — this is the role
+    # stage the agent's persona (IDENTITY.md / SOUL.md) from fleet-roles/<name> — the role
     if [[ -d "$ROLES/$name" ]]; then
       for f in IDENTITY.md SOUL.md BOOTSTRAP.md; do
         [[ -f "$ROLES/$name/$f" ]] && ox "$name" "mkdir -p /sandbox && echo $(b64 < "$ROLES/$name/$f") | base64 -d > /sandbox/$f"
       done
-      echo "   ✓ staged persona from fleet-roles/${name}"
     fi
-    # model via inference.local (the gateway holds the real key)
     [[ -n "$MODEL" ]] && ox "$name" "mkdir -p /sandbox/.openclaw && echo $(printf '{"model":"%s","provider":"%s","baseUrl":"https://inference.local/v1"}' "$MODEL" "$PROVIDER" | b64) | base64 -d > /sandbox/.openclaw/openclaw.json"
-    # optional: install a registry skill (a first-class tool for this role). Best-effort —
-    # if the skill isn't published yet, the agent still works via its SOUL (curl/node).
-    if [[ "$skill" != "-" && -n "$skill" ]]; then
+    # optional registry skill (best-effort — the agent still works via its SOUL if absent)
+    if [[ "${SK[$i]}" != "-" && -n "${SK[$i]}" ]]; then
       local auth; auth=$(printf 'workshop:%s' "${OPENCLAW_REGISTRY_PASSWORD:-wad26-skills}" | b64)
       ox "$name" "printf 'registry=http://${REG}/\n@workshop:registry=http://${REG}/\n//${REG}/:_auth=${auth}\n' > /sandbox/.npmrc"
-      echo "   installing skill ${skill}…"
-      ox "$name" "NODE_NO_WARNINGS=1 openclaw plugins install '$skill' 2>&1 | tail -1 | sed 's/^/     /'" || echo "     (skill install skipped — publish it first, or leave the skill column as '-')"
+      ox "$name" "NODE_NO_WARNINGS=1 openclaw plugins install '${SK[$i]}' 2>&1 | tail -1 | sed 's/^/     /'" || true
     fi
-    echo "   ✓ ${name} ready"
-  done 3< "$spec"
-  echo "Done. Check './scripts/fleet.sh status' (or the Fleet page in the workshop)."
+    echo "   ✓ ${name} ready + configured"
+  done
+  echo "Done. Run './scripts/fleet.sh status' (or open the Fleet page in the workshop)."
 }
 
 status() { openshell sandbox list 2>/dev/null | grep -viE 'UNDICI|trace-warn'; }
