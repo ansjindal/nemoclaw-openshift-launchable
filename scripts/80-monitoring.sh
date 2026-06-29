@@ -55,6 +55,15 @@ grant_sccs
 log "Applying Grafana datasources (Loki + Tempo) + Agent Fleet dashboard"
 oc apply -f "$REPO_ROOT/manifests/monitoring/grafana-extras.yaml"
 
+log "Deploying kubernetes-event-exporter → Loki (feeds the fleet's 'events' agent)"
+oc apply -f "$REPO_ROOT/manifests/monitoring/event-exporter.yaml"
+
+log "Deploying Grafana Alloy log shipper → Loki (feeds the fleet's 'logs' agent)"
+oc apply -f "$REPO_ROOT/manifests/monitoring/log-shipper.yaml"
+
+log "Deploying the instrumented demo app (shop-app) + loadgen (live traces/metrics/logs)"
+oc apply -k "$REPO_ROOT/manifests/demo-app/"
+
 log "Waiting for Grafana + Prometheus to become ready"
 oc -n "$NS" rollout status deploy/kps-grafana --timeout=300s 2>/dev/null || oc -n "$NS" get pods
 oc -n "$NS" rollout status statefulset/prometheus-kps-kube-prometheus-prometheus --timeout=300s 2>/dev/null || true
