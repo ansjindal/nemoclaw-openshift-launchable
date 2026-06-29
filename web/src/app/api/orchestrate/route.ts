@@ -61,21 +61,36 @@ export async function POST(req: Request) {
     const { task } = await req.json();
     if (!task || typeof task !== "string") return NextResponse.json({ ok: false, error: "task required" }, { status: 400 });
 
+    // The "writer" is the synthesizer agent — every other agent is a telemetry specialist.
+    const SYNTH = "writer";
+    const investigators = FLEET.filter((a) => a !== SYNTH);
+
+    // 1) PLAN — route steps only to the investigator agents
     const planRaw = await complete([
-      { role: "system", content: `You are an orchestrator. Break the task into 1-4 ordered steps. Route each to ONE agent from: ${FLEET.join(", ")}. Reply JSON: {"steps":[{"agent":"...","subtask":"..."}]}` },
+      { role: "system", content: `You are an orchestrator. Break the incident into 1-4 ordered investigation steps. Route each to ONE agent from: ${investigators.join(", ")}. Reply JSON: {"steps":[{"agent":"...","subtask":"..."}]}` },
       { role: "user", content: task },
     ], true);
-    const steps: { agent: string; subtask: string }[] = JSON.parse(planRaw).steps ?? [];
+    const steps: { agent: string; subtask: string }[] = (JSON.parse(planRaw).steps ?? []).filter((s: { agent: string }) => investigators.includes(s.agent));
 
+    // 2) DISPATCH — each investigator gathers its findings inside its seal
     const results = [];
     for (const s of steps) results.push({ ...s, out: await runAgent(s.agent, s.subtask) });
 
-    const answer = await complete([
-      { role: "system", content: "Synthesize the agents' results into one clear answer for the user." },
-      { role: "user", content: `Task: ${task}\n\n${results.map((r) => `## ${r.agent}\n${r.out}`).join("\n\n")}` },
-    ]);
+    // 3) SYNTHESIZE — a dedicated WRITER AGENT combines the findings + recommends the fix
+    const findings = results.map((r) => `## ${r.agent}\n${r.out}`).join("\n\n");
+    let answer = ""; let synthesizedBy = "completions";
+    if (FLEET.includes(SYNTH)) {
+      const w = await runAgent(SYNTH, `You are the incident writer. Combine the fleet's findings below into (1) the ROOT CAUSE and (2) a concrete RECOMMENDED FIX a human will approve.\n\nIncident: ${task}\n\n${findings}`);
+      if (w && w.trim() && !/^\(.*(failed|error)/i.test(w.trim())) { answer = w; synthesizedBy = SYNTH; }
+    }
+    if (!answer) {
+      answer = await complete([
+        { role: "system", content: "You are the incident writer. Combine the agents' findings into a root cause and a concrete recommended fix." },
+        { role: "user", content: `Incident: ${task}\n\n${findings}` },
+      ]);
+    }
 
-    return NextResponse.json({ ok: true, fleet: FLEET, plan: steps, results, answer });
+    return NextResponse.json({ ok: true, fleet: FLEET, investigators, synthesizedBy, plan: steps, results, answer });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 });
   }

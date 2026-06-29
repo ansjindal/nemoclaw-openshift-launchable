@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Play, Loader2, ListOrdered } from "lucide-react";
 
 type Step = { agent: string; subtask: string; out?: string };
-type Result = { ok: boolean; fleet?: string[]; plan?: Step[]; results?: Step[]; answer?: string; error?: string };
+type Result = { ok: boolean; fleet?: string[]; plan?: Step[]; results?: Step[]; answer?: string; error?: string; synthesizedBy?: string };
 
 // Part VI capstone widget: type a task, the website orchestrates the fleet — plan (completions)
 // → dispatch each step to a sealed specialist agent → synthesize. Watch it in the browser.
@@ -53,7 +53,7 @@ export function Orchestrator() {
           ))}
           {res.answer && (
             <div className="rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-bg)] p-3">
-              <div className="text-xs font-semibold text-[var(--color-fg-mut)]">SYNTHESIZED ANSWER</div>
+              <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{res.synthesizedBy === "writer" ? "🦞 WRITER AGENT — combined root cause & fix" : "SYNTHESIZED ANSWER"}</div>
               <pre className="mt-1 whitespace-pre-wrap break-words text-sm">{res.answer}</pre>
             </div>
           )}

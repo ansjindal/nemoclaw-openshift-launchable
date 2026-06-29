@@ -6,9 +6,9 @@ A fleet of specialists isn't useful until something *combines* them. That's a sm
 
 1. **Plans** — calls the model over the completions API (`/v1/chat/completions`) to break the incident into steps and route each to one agent (`logs`, `metrics`, `traces`, `writer`).
 2. **Dispatches** — hands each step to that agent with `openclaw agent --local`, so the work runs **inside the agent's seal**, with its skill and its single-backend egress.
-3. **Synthesizes** — merges the findings into a root cause **and a recommended fix**.
+3. **Synthesizes** — hands all the findings to a dedicated **writer agent** (no egress of its own) that combines them into a root cause **and a recommended fix**.
 
-The conductor never touches a backend itself; the agents do the governed reads. Watch the [Live](/learn/live) **Policy decisions** tab while it runs — three agents, three different allowed hosts, every call logged.
+You see **every agent's findings** *and* the writer agent's combined verdict — so the reasoning is transparent, not a black box. The conductor never touches a backend itself; the agents do the governed reads. Watch the [Live](/learn/live) **Policy decisions** tab while it runs — three agents, three different allowed hosts, every call logged.
 
 ## The loop — break, investigate, fix
 

@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Rocket, Bug, Stethoscope, Wrench, Loader2, RefreshCw, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 
 type Health = { exists?: boolean; ready?: string; healthy?: boolean; pods?: string; current?: string; good?: string };
-type Invest = { ok?: boolean; results?: { agent: string; out: string }[]; answer?: string; error?: string };
+type Invest = { ok?: boolean; results?: { agent: string; out: string }[]; answer?: string; error?: string; synthesizedBy?: string };
 
 // Part VI capstone — the full incident loop in one place: deploy a sample app, inject a
 // fault, watch it go unhealthy, let the FLEET investigate and RECOMMEND a fix, then the
@@ -84,15 +84,16 @@ export function IncidentLab() {
 
       {inv?.ok && (
         <div className="mt-4 space-y-2 text-sm">
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">FINDINGS — each agent, from its own backend</div>
           {inv.results?.map((r, i) => (
-            <details key={i} className="rounded-lg border border-[var(--color-line)] p-2">
-              <summary className="cursor-pointer text-xs font-semibold text-[var(--color-nv-bright)]">🦞 {r.agent}</summary>
+            <div key={i} className="rounded-lg border border-[var(--color-line)] p-2">
+              <div className="text-xs font-semibold text-[var(--color-nv-bright)]">🦞 {r.agent}</div>
               <pre className="mt-1 whitespace-pre-wrap break-words text-xs text-[var(--color-fg-dim)]">{r.out}</pre>
-            </details>
+            </div>
           ))}
           {inv.answer && (
             <div className="rounded-lg border border-[var(--color-nv-dim)] bg-[var(--color-bg)] p-3">
-              <div className="text-xs font-semibold text-[var(--color-fg-mut)]">🦞 FLEET: ROOT CAUSE &amp; RECOMMENDED FIX</div>
+              <div className="text-xs font-semibold text-[var(--color-fg-mut)]">{inv.synthesizedBy === "writer" ? "🦞 WRITER AGENT — combined root cause & recommended fix" : "ROOT CAUSE & RECOMMENDED FIX"}</div>
               <pre className="mt-1 whitespace-pre-wrap break-words text-sm">{inv.answer}</pre>
             </div>
           )}
