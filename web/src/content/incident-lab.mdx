@@ -1,24 +1,40 @@
-Time to test the fleet on a real incident — one you cause on purpose. The lab below drives a sample app (`shop` in namespace `demo`) through the whole loop: **deploy → break → investigate → fix**, with you in the loop on the change.
+Now we put the fleet to work on a real incident — one you cause on purpose — and close the whole loop in this page: **break it → the fleet investigates → it recommends a fix → you review, adjust, and approve.**
+
+## The conductor
+
+A fleet of specialists isn't useful until something *combines* them. That's a small **orchestrator** built into this page — no separate app. When you hit **Investigate**, it:
+
+1. **Plans** — calls the model over the completions API (`/v1/chat/completions`) to break the incident into steps and route each to one agent (`logs`, `metrics`, `traces`, `writer`).
+2. **Dispatches** — hands each step to that agent with `openclaw agent --local`, so the work runs **inside the agent's seal**, with its skill and its single-backend egress.
+3. **Synthesizes** — merges the findings into a root cause **and a recommended fix**.
+
+The conductor never touches a backend itself; the agents do the governed reads. Watch the [Live](/learn/live) **Policy decisions** tab while it runs — three agents, three different allowed hosts, every call logged.
+
+## The loop — break, investigate, fix
 
 <IncidentLab />
 
-## The loop
+1. **Deploy** stands up `shop` (2 replicas). The badge goes **healthy**.
+2. **Inject fault** ships a bad image tag. It's a *rolling* update, so the old pods keep serving while the new ReplicaSet fails to pull — a realistic **silently-stuck deploy**. The badge flips to **unhealthy**.
+3. **Investigate** runs the fleet. Only now — *after* a diagnosis — does a fix appear: the agents state the root cause and **recommend the change**.
+4. **Your fix** is pre-filled with the fleet's recommendation. Approve it as-is, or adjust the target image — and the UI flags when **your fix differs from what the agents suggested**. Applying it is the one step a human owns.
 
-1. **Deploy** — stands up the `shop` Deployment (2 replicas) + Service. The badge goes **healthy**.
-2. **Inject fault** — ships a fault you'd normally introduce by mistake: a bad image tag. The new ReplicaSet can't pull, the rollout stalls, and the badge flips to **unhealthy** — visible in the UI exactly as a real regression would be.
-3. **Investigate (fleet)** — hands the incident to the orchestrator. `metrics` queries Prometheus (`kube_deployment_status_replicas_unavailable`, the `ImagePullBackOff` waiting reason), `logs` checks Loki, `traces` checks Tempo, and `writer` composes a **root-cause report** — each agent reaching only its own backend.
-4. **Apply fix ✋** — reverts the image. This is the one step a human confirms: the agents *found* the cause, but a person approves the change before it touches the live deployment.
+## Agents recommend; humans decide; GitOps delivers
 
-## Agents diagnose; humans (and GitOps) fix
-
-Notice what the agents never do: **touch the cluster**. They're sealed from the Kubernetes API — they only *read* telemetry. The fix is applied by you, through this page. That separation is the safety model: an investigator that can't change anything can be handed any incident.
+The agents never touch the cluster — they're sealed from the Kubernetes API and only *read* telemetry. They produce a **recommendation**; the human approves (and may change) the **actual** change. That gap between "what the fleet suggested" and "what you applied" is the human-in-the-loop, made explicit and on the record.
 
 <Callout type="rh" title="Manual here, ArgoCD in production">
-In this lab the fix is a <code>kubectl</code> revert behind a confirm button. In production the same change is a <strong>git commit</strong> a reviewer approves, and <strong>ArgoCD</strong> syncs it to the cluster — identical shape (propose → human approves → delivered), just GitOps delivery instead of a button. The fleet's job — find the root cause and propose the fix — is unchanged.
+In this lab the approved fix is a <code>kubectl</code> change behind a confirm. In production it's a <strong>git commit</strong> a reviewer approves and <strong>ArgoCD</strong> syncs — same shape (fleet recommends → human approves → delivered), just GitOps delivery. The fleet's job, and the human gate, are identical.
 </Callout>
+
+## Drive it with any prompt
+
+The same conductor takes any task, not just this incident — point it at your own question and watch it route across the fleet:
+
+<Orchestrator />
 
 <Callout type="note" title="Make the incident harder">
-The image fault is the clean demo. For the hackathon, inject something the three signals must <em>combine</em> to explain — a config change that makes the app log errors (logs), spike latency (traces), and breach an SLO (metrics) — and watch the writer reconcile all three into one root cause.
+The image fault is the clean demo. For the hackathon, inject something the three signals must <em>combine</em> to explain — a config change that makes the app log errors (logs), spike latency (traces), and breach an SLO (metrics) — and watch the writer reconcile all three, then recommend the fix you approve.
 </Callout>
 
-That's the capstone: a governed, observable, multi-agent SRE copilot — spun up repeatably, each agent provably bounded, driven from this page, and kept honest by a human on the only step that changes the world.
+That's the capstone: a governed, observable SRE copilot — spun up repeatably, each agent provably bounded, investigating from this page, and kept honest by a human on the only step that changes the world.

@@ -37,7 +37,8 @@ async function health() {
   const pods = await kubectl(["-n", NS, "get", "pods", "-l", `app=${DEPLOY}`, "-o",
     "jsonpath={range .items[*]}{.metadata.name}{'='}{.status.phase}{','}{range .status.containerStatuses[*]}{.state.waiting.reason}{end}{'\\n'}{end}"]);
   const stuck = /ImagePullBackOff|ErrImagePull|CrashLoopBackOff|CreateContainerError/.test(pods.out);
-  return { exists: d.code === 0, ready: `${r}/${want}`, healthy: d.code === 0 && want > 0 && r >= want && updated >= want && !stuck, pods: pods.out };
+  const img = await kubectl(["-n", NS, "get", "deploy", DEPLOY, "-o", "jsonpath={.spec.template.spec.containers[0].image}"]);
+  return { exists: d.code === 0, ready: `${r}/${want}`, healthy: d.code === 0 && want > 0 && r >= want && updated >= want && !stuck, pods: pods.out, current: img.out, good: GOOD };
 }
 
 export async function GET() {
@@ -45,7 +46,8 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { action } = await req.json().catch(() => ({}));
+  const body = await req.json().catch(() => ({}));
+  const { action } = body;
   try {
     if (action === "deploy") {
       const a = await kubectl(["apply", "-f", MANIFEST]);
@@ -58,9 +60,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: a.code === 0, action, note: "bad image tag injected — the rollout can't complete", out: a.out, ...(await health()) });
     }
     if (action === "fix") {
-      const a = await kubectl(["-n", NS, "set", "image", `deploy/${DEPLOY}`, `${CONTAINER}=${GOOD}`]);
+      // the human approves (and may adjust) the fix the fleet recommended; default to the known-good image
+      const image = typeof body.image === "string" && body.image.trim() ? body.image.trim() : GOOD;
+      const a = await kubectl(["-n", NS, "set", "image", `deploy/${DEPLOY}`, `${CONTAINER}=${image}`]);
       await kubectl(["-n", NS, "rollout", "status", `deploy/${DEPLOY}`, "--timeout=90s"]);
-      return NextResponse.json({ ok: a.code === 0, action, out: a.out, ...(await health()) });
+      return NextResponse.json({ ok: a.code === 0, action, applied: image, out: a.out, ...(await health()) });
     }
     if (action === "teardown") {
       const a = await kubectl(["delete", "-f", MANIFEST, "--ignore-not-found"]);

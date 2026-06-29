@@ -72,8 +72,7 @@ export const CURRICULUM: Part[] = [
       { slug: "what-youll-build", title: "The Challenge: An SRE Copilot Fleet", blurb: "Several sealed agents — logs, metrics, traces — each scoped to one backend, combined to find root cause.", minutes: 8 },
       { slug: "fleet-spinup", title: "Spin Up & Give Each a Soul", blurb: "One command brings the fleet up; each agent gets its own IDENTITY/SOUL, a skill, and a policy scoped to just its tool.", minutes: 10, hasLab: true },
       { slug: "fleet-status", title: "The Fleet, at a Glance", blurb: "One page: every agent's status and the exact egress its policy allows — proof each policy is specific to its tool.", minutes: 6, hasLab: true },
-      { slug: "fleet-orchestrate", title: "Orchestrate an Investigation", blurb: "A conductor in this page plans over the completions API and routes each step to the right specialist.", minutes: 9, hasLab: true },
-      { slug: "incident-lab", title: "Test the Fleet: Inject & Resolve an Incident", blurb: "Deploy an app, break it, watch it go unhealthy, let the fleet find the cause, and fix it — human-in-the-loop.", minutes: 12, hasLab: true },
+      { slug: "incident-lab", title: "Orchestrate & Resolve an Incident", blurb: "Deploy an app, break it, let the fleet investigate and recommend a fix — then you review, adjust, and approve the change.", minutes: 14, hasLab: true },
     ],
   },
   {
