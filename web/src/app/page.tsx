@@ -9,7 +9,7 @@ export default function Home() {
       </div>
       <h1 className="mt-5 text-4xl font-extrabold tracking-tight md:text-5xl">
         Deploy an AI agent on <span className="text-[var(--color-rh-bright)]">OpenShift</span>,
-        <br />powered by <span className="text-[var(--color-nv-bright)]">NVIDIA</span>.
+        <br />powered by <span className="text-[var(--color-nv-bright)]">NVIDIA OpenShell</span> and <span className="text-[var(--color-nv-bright)]">OpenClaw</span>.
       </h1>
       <p className="mt-5 max-w-2xl text-lg text-[var(--color-fg-dim)]">
         Stand up your own single-node OpenShift cluster, run a sandboxed agent — <strong>Shifty 🦞</strong> —
@@ -23,7 +23,7 @@ export default function Home() {
       <div className="mt-14 grid gap-4 sm:grid-cols-2">
         {CURRICULUM.map((p) => (
           <div key={p.id} className="rounded-xl border border-[var(--color-line)] bg-[var(--color-panel)] p-5">
-            <div className={`text-sm font-bold ${p.accent === "rh" ? "text-[var(--color-rh-bright)]" : p.accent === "nv" ? "text-[var(--color-nv-bright)]" : "text-[var(--color-fg)]"}`}>{p.title}</div>
+            <div className="text-sm font-bold text-[var(--color-nv-bright)]">{p.title}</div>
             <div className="mt-1 text-sm text-[var(--color-fg-dim)]">{p.subtitle}</div>
           </div>
         ))}
