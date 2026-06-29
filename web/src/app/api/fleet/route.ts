@@ -6,8 +6,8 @@ import { spawn } from "node:child_process";
 
 const HOME = process.env.HOME ?? "/home/ubuntu";
 const env = { ...process.env, PATH: `${process.env.PATH ?? ""}:${HOME}/.local/bin:/usr/local/bin:/usr/bin` };
-const FLEET = (process.env.FLEET || "logs,metrics,traces,writer").split(",").map((s) => s.trim()).filter(Boolean);
-const ROLES: Record<string, string> = { logs: "Scout 🔎 — logs (Loki)", metrics: "Gauge 📈 — metrics (Prometheus)", traces: "Trace 🧵 — traces (Tempo)", writer: "Scribe ✍️ — synthesis (no egress)" };
+const FLEET = (process.env.FLEET || "logs,metrics,traces,events,analyst").split(",").map((s) => s.trim()).filter(Boolean);
+const ROLES: Record<string, string> = { logs: "Scout 🔎 — logs (Loki)", metrics: "Gauge 📈 — metrics (Prometheus)", traces: "Trace 🧵 — traces (Tempo)", events: "Probe 🛎️ — k8s events (via Loki)", analyst: "Sage 🧠 — lead analyst (no egress)" };
 
 function openshell(args: string[], timeoutMs = 12_000): Promise<{ code: number | null; out: string }> {
   return new Promise((resolve) => {
@@ -30,9 +30,12 @@ async function agentInfo(name: string) {
     for (const k of Object.keys(nps)) for (const e of nps[k].endpoints ?? []) egress.push(`${e.host}:${e.port}`);
     ready = true; // policy fetch succeeded → the sandbox exists and the gateway knows it
   } catch { /* not found / not ready */ }
-  // liveness: a no-op exec
-  const live = await openshell(["sandbox", "exec", "-n", name, "--", "true"], 8000);
-  return { name, role: ROLES[name] ?? name, ready: ready && live.code === 0, egress };
+  // liveness + persona: read the agent's SOUL.md (the role it was given). A successful read
+  // also proves the sandbox is live, so this doubles as the liveness check.
+  const soulPath = "/sandbox/SOUL.md";
+  const sr = await openshell(["sandbox", "exec", "-n", name, "--", "cat", soulPath], 8000);
+  const soul = sr.code === 0 ? sr.out.split("\n").filter((l) => !/UNDICI|trace-warn/.test(l)).join("\n").trim() : "";
+  return { name, role: ROLES[name] ?? name, ready: ready && sr.code === 0, egress, soul, soulPath };
 }
 
 export async function GET() {

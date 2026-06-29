@@ -3,8 +3,8 @@
 export type OrchEvent = {
   t: number; type: string;
   fleet?: string[]; investigators?: string[];
-  steps?: { agent: string; subtask: string }[];
-  agent?: string; subtask?: string; status?: string; out?: string; ms?: number;
+  steps?: { agent: string; subtask: string; request?: string }[];
+  agent?: string; subtask?: string; request?: string; status?: string; out?: string; ms?: number;
   answer?: string; synthesizedBy?: string; error?: string;
 };
 

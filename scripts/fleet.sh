@@ -20,6 +20,7 @@ IMAGE="${OPENCLAW_SANDBOX_IMAGE:-ghcr.io/ansjindal/openclaw-sandbox:2026.6.10}"
 MODEL="${NEMOCLAW_MODEL:-}"; PROVIDER="${NEMOCLAW_INFERENCE_PROVIDER:-default}"
 API="${NEMOCLAW_INFERENCE_API:-openai-completions}"
 ROLES="$REPO/manifests/openclaw/fleet-roles"
+SKILLDIR="$REPO/manifests/openclaw/skills/cluster-telemetry"   # the in-cluster telemetry skill
 ox() { openshell sandbox exec -n "$1" -- sh -c "$2" </dev/null 2>&1 | grep -viE 'UNDICI|trace-warn' || true; }
 b64() { base64 | tr -d '\n'; }
 
@@ -87,6 +88,15 @@ up() {
     if [[ -d "$ROLES/$name" ]]; then
       for f in IDENTITY.md SOUL.md BOOTSTRAP.md; do
         [[ -f "$ROLES/$name/$f" ]] && ox "$name" "mkdir -p /sandbox && echo $(b64 < "$ROLES/$name/$f") | base64 -d > /sandbox/$f"
+      done
+    fi
+    # stage the cluster-telemetry skill for any agent with a backend — this is how a sealed
+    # specialist reads its in-cluster Loki/Prometheus/Tempo (web_fetch blocks internal hosts;
+    # the skill shells out to curl, still bounded by the agent's single-backend egress policy).
+    if [[ "${BK[$i]}" != "-" && -n "${BK[$i]}" && -d "$SKILLDIR" ]]; then
+      ox "$name" "mkdir -p /sandbox/.agents/skills/cluster-telemetry"
+      for f in SKILL.md tq.js; do
+        [[ -f "$SKILLDIR/$f" ]] && ox "$name" "echo $(b64 < "$SKILLDIR/$f") | base64 -d > /sandbox/.agents/skills/cluster-telemetry/$f"
       done
     fi
     if [[ -n "$MODEL" ]]; then

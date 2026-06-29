@@ -1,0 +1,97 @@
+You just watched the fleet investigate. There's no magic in it — it's a small orchestrator in
+this very website ([`/api/orchestrate`](/learn/incident-lab)), about 130 lines. This page shows
+you **all of it**: the plan, the exact prompt each agent gets, how a sealed agent is invoked,
+and how the analyst concludes. Nothing here is hidden.
+
+<FleetOrchestration />
+
+## 1 · A fixed plan — no model call to "plan"
+
+A lot of "agent orchestrators" burn a model call just to decide what to do. We don't. The plan is
+**fixed**: one prescribed probe per specialist. The intelligence is in each agent *running and
+interpreting* its probe, and in the analyst's synthesis — both reached **through the agent's own
+governed model access**, never from the website. Each probe is the exact command the agent runs:
+
+```ts
+const TQ = "node /sandbox/.agents/skills/cluster-telemetry/tq.js";
+function buildProbes() {
+  const ms = Date.now();
+  const range = `&start=${ms - 3600000}000000&end=${ms}000000&limit=15`; // Loki needs a [start,end] window
+  return {
+    metrics: { url: `http://<prometheus>/api/v1/query?query=sum by (code) (rate(shop_requests_total[2m]))'
+                     ' http://<prometheus>/api/v1/query?query=avg request latency`,
+               hint: "request rate by HTTP code (a 5xx spike is the error rate) + average latency" },
+    logs:    { url: `http://<loki>/loki/api/v1/query_range?query={app="shop-app"} |= "error"${range}`,
+               hint: "the app's recent ERROR log lines (e.g. 'checkout failed: payment provider 503')" },
+    events:  { url: `http://<loki>/loki/api/v1/query_range?query={job="kubernetes-event-exporter"} |= "demo"${range}`,
+               hint: "recent k8s events — if NONE are relevant, that rules OUT an infra cause" },
+    traces:  { url: `http://<tempo>/api/search?q={ resource.service.name="shop" && status=error }`,
+               hint: "recent ERROR traces — the failing span shows WHERE the request breaks" },
+  };
+}
+```
+
+## 2 · Each agent gets a directive sub-task
+
+Free-form "investigate this" makes a small model wander — read files, hunt for tools, loop until
+it blows its context. So each sealed specialist gets a **directive** sub-task that inlines the
+exact command. That keeps the tool loop to ~2 calls (run the probe → report), finishing in ~30s:
+
+```ts
+const subtask =
+ `You are the ${a} specialist of an SRE fleet — read-only, sealed to your one backend.
+  Use ONLY the exec tool. Run this EXACT command and report its output verbatim as your
+  finding (it returns ${p.hint}), then briefly state what it means and STOP. Do not read
+  files, do not use web_fetch or dir_list, and do NOT generate any image.
+
+  Command:
+  ${TQ} '${p.url}'
+
+  Incident: ${task}`;
+```
+
+## 3 · How a sealed agent is actually invoked
+
+Each step runs **inside the agent's sandbox**, through OpenClaw's embedded agent. The website
+never calls a model — the sandbox does, through its governed `inference.local`:
+
+```ts
+// findings are multi-line, and `sandbox exec` rejects newline args → base64 the message in,
+// decode it inside the sandbox.
+const b64 = Buffer.from(subtask, "utf8").toString("base64");
+await openshell(["sandbox", "exec", "-n", agent, "--", "sh", "-c",
+  `openclaw agent --local --json --session-id <uuid> -m "$(printf %s ${b64} | base64 -d)"`]);
+```
+
+The probe itself is the **cluster-telemetry skill** (`tq.js`): it shells out to `curl` (an
+egress-allowed binary, so the call stays bounded by the agent's single-backend policy) and prints
+a *compact* summary so the agent stays focused. OpenClaw's `web_fetch` is blocked for internal
+hosts — the skill is how a sealed agent reads `*.svc.cluster.local` without weakening anything.
+
+## 4 · The analyst concludes
+
+The investigators run in **parallel**; when they're all in, their findings go to the no-egress,
+no-tools **analyst**, which reasons over them — combining the error rate, the error logs, the
+failing span, and the *absence* of infra events — into a root cause and a recommended remediation:
+
+```ts
+const analystPrompt =
+ `You are the incident analyst synthesizing an SRE fleet's findings. Reason ONLY over the
+  findings below — no tools, no files, no image, and do NOT greet or describe yourself.
+  Begin directly with "ROOT CAUSE:". Cite the evidence (error rate from metrics, the error
+  log lines, the failing trace span; note that no k8s events rules out an infra cause) and
+  give the RECOMMENDED FIX. Then a FINAL line:
+  RECOMMENDED_ACTION: <one concise remediation, e.g. "roll back the change that broke the payment path">`;
+```
+
+The whole run is streamed to the page as newline-delimited JSON (`plan` → `step start/done` →
+`writer` → `answer`), which is why you see the live timeline, each agent's request, and its
+findings appear as they happen.
+
+<Callout type="rh" title="Why it's built this way">
+Two honest constraints shaped this: OpenClaw's <code>web_fetch</code> refuses internal hosts (so
+agents read their backend via a <code>curl</code>-based skill), and a small model can't hold a
+free-form ReAct loop over large telemetry (so each agent gets one prescribed probe). The result is
+<strong>reliable and real</strong> — every agent runs a real query against its real backend, and
+the analyst's recommendation comes from live cluster state. Read it, change it, own it.
+</Callout>

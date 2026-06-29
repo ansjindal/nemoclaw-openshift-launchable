@@ -11,7 +11,8 @@ Each card is one agent, read live from the cluster:
   - `logs` reaches **Loki** and nothing else,
   - `metrics` reaches **Prometheus** and nothing else,
   - `traces` reaches **Tempo** and nothing else,
-  - `writer` reaches **nothing** — it only synthesizes.
+  - `events` reaches **Loki** (the Kubernetes event stream) and nothing else,
+  - `analyst` reaches **nothing** — it only concludes.
 
 There's no honor system here. If the `metrics` agent tried to query Loki, the supervisor's proxy would deny it — and you'd see that denial on the [Live](/learn/live) **Policy decisions** tab, attributed to the agent and the rule. The blast radius of each agent is exactly its job.
 
