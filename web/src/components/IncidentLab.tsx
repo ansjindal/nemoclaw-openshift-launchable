@@ -1,6 +1,6 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
-import { Rocket, Bug, Stethoscope, Wrench, Loader2, RefreshCw, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Rocket, Bug, Stethoscope, Wrench, Loader2, RefreshCw, CheckCircle2, XCircle, AlertTriangle, Trash2 } from "lucide-react";
 
 type Health = { exists?: boolean; ready?: string; healthy?: boolean; pods?: string; current?: string; good?: string };
 type Invest = { ok?: boolean; results?: { agent: string; out: string }[]; answer?: string; error?: string; synthesizedBy?: string };
@@ -16,7 +16,14 @@ export function IncidentLab() {
   const [humanImage, setHumanImage] = useState("");
 
   const refresh = useCallback(async () => { try { setH(await (await fetch("/api/incident")).json()); } catch { /* */ } }, []);
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { refresh(); const t = setInterval(refresh, 6000); return () => clearInterval(t); }, [refresh]); // live pod view
+
+  // parse the live `kubectl get pods` string: "name=Phase,WaitingReason" per line
+  const pods = (h?.pods || "").split("\n").map((l) => l.trim()).filter(Boolean).map((l) => {
+    const [name, rest = ""] = l.split("=");
+    const [phase = "", reason = ""] = rest.split(",");
+    return { name, phase, reason };
+  });
 
   const act = async (action: string, extra: object = {}) => {
     setBusy(action);
@@ -73,10 +80,27 @@ export function IncidentLab() {
         {h?.current && <span className="text-xs text-[var(--color-fg-mut)]">· image: <code>{h.current.split("/").pop()}</code></span>}
       </div>
 
-      {/* Step 1–3: deploy, break, investigate */}
+      {/* live `kubectl get pods` of demo/shop (auto-refreshes) */}
+      {pods.length > 0 && (
+        <div className="mt-2 rounded-lg border border-[var(--color-line)] p-2">
+          <div className="text-xs font-semibold text-[var(--color-fg-mut)]">PODS (live · demo/shop)</div>
+          <div className="mt-1 space-y-0.5 font-mono text-xs">
+            {pods.map((p) => (
+              <div key={p.name} className="flex items-center justify-between gap-3">
+                <span className="text-[var(--color-fg-dim)]">{p.name}</span>
+                <span className={p.reason ? "text-[var(--color-rh-bright)]" : p.phase === "Running" ? "text-[var(--color-nv-bright)]" : "text-[var(--color-fg-mut)]"}>{p.reason || p.phase || "—"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Step 1–3: deploy/undeploy toggle, break, investigate */}
       <div className="mt-3 flex flex-wrap gap-2">
-        <Btn a="deploy" on={() => act("deploy")} icon={<Rocket size={14} />} label="1 · Deploy" kind="go" />
-        <Btn a="break" on={() => act("break")} icon={<Bug size={14} />} label="2 · Inject fault" kind="warn" disabled={!h?.exists} />
+        {h?.exists
+          ? <Btn a="teardown" on={() => { if (confirm("Undeploy demo/shop?")) act("teardown").then(() => { setInv(null); refresh(); }); }} icon={<Trash2 size={14} />} label="Undeploy" />
+          : <Btn a="deploy" on={() => act("deploy")} icon={<Rocket size={14} />} label="1 · Deploy" kind="go" />}
+        <Btn a="break" on={() => act("break")} icon={<Bug size={14} />} label="2 · Inject fault" kind="warn" disabled={!h?.exists || h?.healthy === false} />
         <Btn a="investigate" on={investigate} icon={<Stethoscope size={14} />} label="3 · Investigate (fleet)" disabled={h?.healthy !== false} />
       </div>
 
