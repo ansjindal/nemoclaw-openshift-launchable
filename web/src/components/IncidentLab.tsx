@@ -41,7 +41,7 @@ export function IncidentLab() {
   const investigate = async () => {
     setBusy("investigate"); setInv(null); setTimeline([]);
     const results: { agent: string; out: string }[] = [];
-    const task = "The 'shop' deployment in namespace demo is unhealthy. Investigate with logs (Loki) and metrics (Prometheus), state the root cause, and recommend the concrete fix. End your reply with a single line exactly: FIX_IMAGE: <the container image deploy/shop should be set to>";
+    const task = "The 'shop' deployment in namespace demo is unhealthy. Investigate from logs (Loki) and metrics (Prometheus) and find the root cause.";
     try {
       await streamOrchestrate(task, (e) => {
         if (e.type === "plan") setTimeline((e.steps || []).map((s) => ({ agent: s.agent, status: "queued" })));
@@ -51,7 +51,7 @@ export function IncidentLab() {
         else if (e.type === "answer") {
           setTimeline((tl) => tl.map((x) => x.agent === "writer" ? { ...x, status: "done", ms: e.ms } : x));
           setInv({ ok: true, results: [...results], answer: e.answer, synthesizedBy: e.synthesizedBy });
-          const m = /FIX_IMAGE:\s*(\S+)/i.exec(e.answer || "");   // the fix comes from the FLEET's recommendation
+          const m = /RECOMMENDED_IMAGE:\s*(\S+)/i.exec(e.answer || "");   // the fix comes from the FLEET's recommendation
           const img = (m && m[1]) || h?.good || "";
           setRecommended({ image: img, fromFleet: !!m }); setHumanImage(img);
         } else if (e.type === "error") setInv({ ok: false, error: e.error });
