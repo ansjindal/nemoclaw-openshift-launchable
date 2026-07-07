@@ -49,7 +49,7 @@ up() {
   local REG="registry.openshell.svc.cluster.local:4873"
   # Whitespace-separated columns:  name   backend(host:port|-)   skill(@scope/name|-)
   # (NOT colon-separated — backend hosts contain a colon, e.g. loki…:3100.)
-  local -a NM BK SK
+  local -a NM BK SK POL
   # Read the spec on FD 3 (the openshell commands below read stdin and would otherwise
   # eat the rest of the file). Collect the fleet, then create CONCURRENTLY so the agents
   # bootstrap in parallel (~1 min total) instead of one-after-another (~1 min each).
@@ -62,14 +62,21 @@ up() {
   local i name
   for i in "${!NM[@]}"; do
     name="${NM[$i]}"
-    echo "▶ ${name}  (egress=${BK[$i]}  skill=${SK[$i]})"
-    policy_for "${BK[$i]}" > "/tmp/fleet-${name}.policy.yaml"
+    # Prefer a committed per-role policy file (fleet-roles/<name>/policy.yaml, the OpenShell
+    # way); fall back to a generated one derived from the backend column when absent.
+    if [[ -f "$ROLES/$name/policy.yaml" ]]; then
+      POL[$i]="$ROLES/$name/policy.yaml"
+    else
+      POL[$i]="/tmp/fleet-${name}.policy.yaml"
+      policy_for "${BK[$i]}" > "${POL[$i]}"
+    fi
+    echo "▶ ${name}  (egress=${BK[$i]}  skill=${SK[$i]}  policy=${POL[$i]})"
     openshell sandbox delete "$name" </dev/null >/dev/null 2>&1 || true
   done
   sleep 2
   for i in "${!NM[@]}"; do
     name="${NM[$i]}"
-    openshell sandbox create --name "$name" --policy "/tmp/fleet-${name}.policy.yaml" --from "$IMAGE" --no-tty -- true </dev/null >"/tmp/fleet-${name}.log" 2>&1 &
+    openshell sandbox create --name "$name" --policy "${POL[$i]}" --from "$IMAGE" --no-tty -- true </dev/null >"/tmp/fleet-${name}.log" 2>&1 &
   done
   echo "   …creating; waiting for each to reach Ready (they bootstrap concurrently)…"
 

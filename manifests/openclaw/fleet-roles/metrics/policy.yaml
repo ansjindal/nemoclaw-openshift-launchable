@@ -1,0 +1,53 @@
+# OpenShell SandboxPolicy for the `metrics` agent — real OpenShell schema, deny-by-default.
+# Applied at sandbox creation via `openshell sandbox create --policy`. Committed here so the
+# agent's egress is reviewable in git; fleet.sh uses this file when present (else it generates
+# an equivalent one from the backend column in the fleet spec).
+version: 1
+
+filesystem_policy:
+  include_workdir: true
+  read_only:
+    - /usr
+    - /lib
+    - /proc
+    - /dev/urandom
+    - /app
+    - /etc
+    - /var/log
+  read_write:
+    - /sandbox
+    - /tmp
+    - /dev/null
+
+landlock:
+  compatibility: best_effort
+
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+
+network_policies:
+  in-cluster-registry:
+    name: in-cluster-registry
+    endpoints:
+      - host: registry.openshell.svc.cluster.local
+        port: 4873
+        access: full
+        protocol: rest
+        allow_encoded_slash: true
+    binaries:
+      - path: /usr/bin/npm
+      - path: /usr/local/bin/npm
+      - path: /usr/bin/node
+      - path: /usr/local/bin/node
+
+  tool-egress:
+    name: tool-egress
+    endpoints:
+      - host: kps-kube-prometheus-stack-prometheus.monitoring.svc.cluster.local
+        port: 9090
+        access: full
+    binaries:
+      - path: /usr/bin/node
+      - path: /usr/local/bin/node
+      - path: /usr/bin/curl
