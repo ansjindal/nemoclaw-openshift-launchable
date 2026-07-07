@@ -51,7 +51,7 @@ export function InstanceLinks() {
                 </button>
               </div>
               <p className="mt-1.5 text-[10px] leading-snug text-[var(--color-fg-mut)]">
-                Usually auto-detected from this page&apos;s URL. The ID is the suffix in your instance&apos;s Shareable URLs (e.g. <code>openshift-<b>1ut2jitd</b>.stg.apps.launchpad.nvidia.com</code>) — override it here if a link doesn&apos;t resolve.
+                Usually auto-detected from this page&apos;s URL. The ID is the suffix in your instance&apos;s Shareable URLs (e.g. <code>openshift-<b>1ut2jitd</b>.brevlab.com</code>) — override it here if a link doesn&apos;t resolve.
               </p>
             </div>
           </div>

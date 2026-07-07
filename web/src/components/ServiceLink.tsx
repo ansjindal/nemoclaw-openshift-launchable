@@ -15,7 +15,7 @@ export function ServiceLink({ service, children }: { service: BrevService; child
     if (needsId(service) && !id) {
       e.preventDefault();
       const raw = window.prompt(
-        "Your instance ID (e.g. 1ut2jitd) — the suffix in any of your instance's Shareable URLs, like openshift-1ut2jitd.stg.apps.launchpad.nvidia.com. You can also paste the whole URL.",
+        "Your instance ID (e.g. 1ut2jitd) — the suffix in any of your instance's Shareable URLs, like openshift-1ut2jitd.brevlab.com. You can also paste the whole URL.",
       );
       if (!raw) return;
       setBrevId(raw);

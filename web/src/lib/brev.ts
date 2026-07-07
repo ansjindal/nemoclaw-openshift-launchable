@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 //    next.config.ts). No instance ID needed. Used for apps that serve under a sub-path
 //    (Grafana via serve_from_sub_path).
 //  • SUBDOMAIN-based: the instance publishes each port as
-//    https://<name>-<INSTANCE_ID>.stg.apps.launchpad.nvidia.com. Apps that can't serve
+//    https://<name>-<INSTANCE_ID>.brevlab.com. Apps that can't serve
 //    under a sub-path (OpenShift console, OpenClaw UI) use this. The instance ID is
 //    auto-detected from the workshop's own hostname (learn-<ID>.…); the user can also
 //    override it once (stored locally).
@@ -14,8 +14,8 @@ import { useEffect, useState } from "react";
 const KEY = "brevInstanceId";
 const EVT = "brevid:change";
 
-// Instances are published under this domain (legacy boxes used brevlab.com).
-const BREV_DOMAIN = "stg.apps.launchpad.nvidia.com";
+// Instances are published under this domain (older boxes used stg.apps.launchpad.nvidia.com).
+const BREV_DOMAIN = "brevlab.com";
 const ID_IN_HOST = /-([a-z0-9]+)\.(?:stg\.apps\.launchpad\.nvidia\.com|brevlab\.com)/i;
 
 type Svc = { label: string; path?: string; sub?: string; suffix?: string };
@@ -31,7 +31,7 @@ export function needsId(service: BrevService): boolean {
 }
 
 // Accept a bare ID ("1ut2jitd") or a pasted service URL
-// ("https://openshift-1ut2jitd.stg.apps.launchpad.nvidia.com").
+// ("https://openshift-1ut2jitd.brevlab.com").
 export function parseBrevId(raw: string): string {
   const s = (raw || "").trim();
   const m = s.match(ID_IN_HOST) || s.match(/^([a-z0-9]+)$/i);
