@@ -7,3 +7,4 @@ minc
 web/node_modules
 web/.next
 web/tsconfig.tsbuildinfo
+.DS_Store

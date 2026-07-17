@@ -1,4 +1,11 @@
-# NemoClaw on MicroShift — Brev Launchable (Red Hat workshop)
+# NemoClaw on MicroShift — Brev Launchable
+
+[![CI](https://github.com/ansjindal/nemoclaw-openshift-launchable/actions/workflows/ci.yml/badge.svg)](https://github.com/ansjindal/nemoclaw-openshift-launchable/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/ansjindal/nemoclaw-openshift-launchable?sort=semver)](https://github.com/ansjindal/nemoclaw-openshift-launchable/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/ansjindal/nemoclaw-openshift-launchable)](LICENSE)
+![OpenShift](https://img.shields.io/badge/OpenShift-MicroShift%20(MINC)-ee0000?logo=redhatopenshift&logoColor=white)
+![NVIDIA](https://img.shields.io/badge/NVIDIA-OpenShell%20·%20OpenClaw-76b900?logo=nvidia&logoColor=white)
+![Next.js](https://img.shields.io/badge/site-Next.js%2016-black?logo=nextdotjs)
 
 A [Brev Launchable](https://docs.nvidia.com/brev/concepts/launchables) that stands up the
 full stack on **one CPU instance** — no nested virtualization, no local GPU, no Red Hat
@@ -48,7 +55,7 @@ preflight → host deps → MicroShift (MINC) → OpenShell → OpenClaw Sandbox
 
 ## Why this shape
 
-This is a Red Hat workshop, so we want the genuine **OpenShift `oc` experience** on a
+We want the genuine **OpenShift `oc` experience** on a
 single node. Full OpenShift (SNO / OpenShift Local) needs bare metal or **nested
 virtualization**, which this Brev instance doesn't have. The only OpenShift-family option
 that fits is **MicroShift** — and since the Brev host is Ubuntu (MicroShift's Red Hat build
